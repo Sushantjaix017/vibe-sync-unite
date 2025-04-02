@@ -12,9 +12,9 @@ const PlayOptions: React.FC<PlayOptionsProps> = ({ onPlay, onVibeTogether }) => 
     <div className="w-full max-w-md p-4 space-y-5 animate-fade-in">
       <button 
         onClick={onPlay}
-        className="w-full flex items-center justify-center p-4 rounded-xl bg-syncme-light-purple hover:bg-syncme-purple text-white transition-all transform hover:scale-105 card-hover shadow-[0_0_15px_rgba(155,135,245,0.3)]"
+        className="w-full flex items-center justify-center p-4 rounded-xl bg-syncme-light-purple hover:bg-syncme-purple text-white transition-all card-hover shadow-[0_0_15px_rgba(155,135,245,0.3)]"
       >
-        <div className="emoji-bg mr-3 animate-pulse">
+        <div className="emoji-bg mr-3">
           <Play size={20} className="text-white" />
         </div>
         <span className="text-lg font-medium">Play Now</span>
@@ -22,7 +22,7 @@ const PlayOptions: React.FC<PlayOptionsProps> = ({ onPlay, onVibeTogether }) => 
       
       <button 
         onClick={onVibeTogether}
-        className="w-full flex items-center justify-center p-4 rounded-xl bg-syncme-orange hover:bg-syncme-orange/90 text-white transition-all transform hover:scale-105 card-hover shadow-[0_0_15px_rgba(249,115,22,0.3)]"
+        className="w-full flex items-center justify-center p-4 rounded-xl bg-syncme-orange hover:bg-syncme-orange/90 text-white transition-all card-hover shadow-[0_0_15px_rgba(249,115,22,0.3)]"
       >
         <div className="emoji-bg mr-3 bg-syncme-orange/20">
           <Users size={20} className="text-white" />

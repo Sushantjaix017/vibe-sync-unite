@@ -1,10 +1,7 @@
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Play, Pause, SkipForward, SkipBack } from 'lucide-react';
+import React, { useState } from 'react';
+import { Play, Pause, SkipForward, SkipBack, Users, MessageCircle } from 'lucide-react';
 import Header from './Header';
-import YoutubeIframe from 'react-native-youtube-iframe';
-import { getYoutubeVideoId } from '@/utils/youtubeApi';
-import { toast } from '@/hooks/use-toast';
 
 interface PlayerProps {
   song: {
@@ -28,43 +25,22 @@ const Player: React.FC<PlayerProps> = ({
   const [isPlaying, setIsPlaying] = useState(true);
   const [progress, setProgress] = useState(0);
   const [showChat, setShowChat] = useState(false);
-  const [youtubeReady, setYoutubeReady] = useState(false);
-  const [videoId, setVideoId] = useState<string | null>(null);
-  const playerRef = useRef(null);
-  
-  useEffect(() => {
-    const fetchYoutubeId = async () => {
-      try {
-        const id = await getYoutubeVideoId(`${song.title} ${song.artist}`);
-        setVideoId(id);
-      } catch (error) {
-        console.error('Error fetching YouTube video:', error);
-        toast({
-          title: "YouTube Error",
-          description: "Could not load the song video. Please try again.",
-          variant: "destructive"
-        });
-      }
-    };
-    
-    fetchYoutubeId();
-  }, [song]);
 
-  const onStateChange = useCallback((state) => {
-    if (state === 'ended') {
-      setIsPlaying(false);
-    } else if (state === 'playing') {
-      setIsPlaying(true);
-    } else if (state === 'paused') {
-      setIsPlaying(false);
+  // Mock function to simulate playback progress
+  React.useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isPlaying && progress < 100) {
+      interval = setInterval(() => {
+        setProgress(prev => Math.min(prev + 0.5, 100));
+      }, 1000);
     }
-  }, []);
-
-  const togglePlayback = useCallback(() => {
-    setIsPlaying(prev => !prev);
-  }, []);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isPlaying, progress]);
 
   const formatTime = (percentage: number) => {
+    // Assuming a 3-minute song
     const totalSeconds = 180 * (percentage / 100);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = Math.floor(totalSeconds % 60);
@@ -73,7 +49,7 @@ const Player: React.FC<PlayerProps> = ({
 
   return (
     <div className="flex flex-col h-full space-bg cosmic-dots animate-fade-in">
-      <Header title={roomCode ? `Room: ${roomCode}` : "Now Playing 🎵"} showBackButton={true} onBack={onBack} />
+      <Header title={roomCode ? `Room: ${roomCode}` : "Now Playing 🎵"} showBackButton={true} />
       
       {roomCode && (
         <div className="flex items-center justify-between px-4 py-2 bg-syncme-light-purple/10 backdrop-blur-md border-b border-syncme-light-purple/10">
@@ -97,32 +73,16 @@ const Player: React.FC<PlayerProps> = ({
       )}
       
       <div className="flex-1 flex flex-col items-center justify-between px-6 py-8 relative">
+        {/* Floating emojis */}
         <div className="absolute top-10 left-[10%] text-xl opacity-10 float-slow">🎵</div>
         <div className="absolute top-[15%] right-[15%] text-xl opacity-10 float">🎶</div>
         <div className="absolute bottom-[20%] left-[20%] text-xl opacity-10 float-fast">🎧</div>
         
+        {/* YouTube player placeholder with glow */}
         <div className="w-full aspect-video bg-syncme-dark/80 rounded-lg overflow-hidden shadow-[0_0_30px_rgba(155,135,245,0.2)] mb-6 backdrop-blur-md border border-syncme-light-purple/10">
-          {videoId ? (
-            <YoutubeIframe
-              ref={playerRef}
-              height={300}
-              width={400}
-              videoId={videoId}
-              play={isPlaying}
-              onChangeState={onStateChange}
-              onReady={() => setYoutubeReady(true)}
-              initialPlayerParams={{
-                preventFullScreen: true,
-                controls: false,
-                modestbranding: true,
-                rel: false
-              }}
-            />
-          ) : (
-            <div className="h-full w-full flex items-center justify-center">
-              <div className="animate-pulse text-blue-200">Loading video...</div>
-            </div>
-          )}
+          <div className="w-full h-full flex items-center justify-center text-blue-200/50">
+            <p>YouTube Player will appear here</p>
+          </div>
         </div>
         
         <div className="w-full">
@@ -153,7 +113,7 @@ const Player: React.FC<PlayerProps> = ({
             </button>
             
             <button 
-              onClick={togglePlayback}
+              onClick={() => setIsPlaying(!isPlaying)}
               className="w-16 h-16 rounded-full bg-syncme-light-purple flex items-center justify-center text-white hover:bg-syncme-purple transition-colors shadow-[0_0_20px_rgba(155,135,245,0.5)]"
             >
               {isPlaying ? (
