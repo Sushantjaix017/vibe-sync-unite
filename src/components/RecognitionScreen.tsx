@@ -1,14 +1,69 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import WaveformAnimation from './WaveformAnimation';
 import Header from './Header';
+import { recordAudio, recognizeMusic } from '@/utils/musicDetection';
+import { toast } from '@/hooks/use-toast';
 
 interface RecognitionScreenProps {
   isListening: boolean;
   onCancel: () => void;
+  onSongRecognized: (song: any) => void;
 }
 
-const RecognitionScreen: React.FC<RecognitionScreenProps> = ({ isListening, onCancel }) => {
+const RecognitionScreen: React.FC<RecognitionScreenProps> = ({ 
+  isListening, 
+  onCancel,
+  onSongRecognized
+}) => {
+  const [status, setStatus] = useState<'ready' | 'recording' | 'processing'>('ready');
+  
+  useEffect(() => {
+    if (isListening) {
+      detectMusic();
+    }
+    
+    // Cleanup function
+    return () => {
+      // Additional cleanup if needed
+    };
+  }, [isListening]);
+  
+  const detectMusic = async () => {
+    try {
+      setStatus('recording');
+      
+      // Record audio from microphone
+      const audioBlob = await recordAudio();
+      
+      setStatus('processing');
+      
+      // Send audio to audd.io for recognition
+      const song = await recognizeMusic(audioBlob);
+      
+      // Send the recognized song to the parent component
+      if (song) {
+        onSongRecognized(song);
+      } else {
+        toast({
+          title: "No music detected",
+          description: "Please try again with clearer audio",
+          variant: "destructive"
+        });
+        onCancel();
+      }
+      
+    } catch (error) {
+      console.error('Error during music detection:', error);
+      toast({
+        title: "Detection Failed",
+        description: error instanceof Error ? error.message : "Failed to recognize music",
+        variant: "destructive"
+      });
+      onCancel();
+    }
+  };
+  
   return (
     <div className="fixed inset-0 z-50 flex flex-col space-bg cosmic-dots text-white animate-fade-in">
       <Header title="Detecting Music 🎵" showBackButton={false} />
@@ -33,9 +88,13 @@ const RecognitionScreen: React.FC<RecognitionScreenProps> = ({ isListening, onCa
         
         <WaveformAnimation isListening={isListening} />
         
-        <h2 className="text-2xl font-bold mb-2 text-glow">Listening to Music</h2>
+        <h2 className="text-2xl font-bold mb-2 text-glow">
+          {status === 'recording' ? 'Listening to Music' : 'Processing Audio...'}
+        </h2>
         <p className="text-center text-blue-200/70 mb-8 max-w-xs">
-          Hold your phone close to the music source for better recognition 🔊
+          {status === 'recording' 
+            ? 'Hold your phone close to the music source for better recognition 🔊' 
+            : 'Identifying the song using audd.io API 🔍'}
         </p>
         
         <button 

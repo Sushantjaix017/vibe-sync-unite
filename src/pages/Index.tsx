@@ -9,6 +9,7 @@ import Header from '@/components/Header';
 import { sampleSongs, generateRoomCode } from '@/utils/mockData';
 import { Music } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { toast } from '@/hooks/use-toast';
 
 enum AppState {
   HOME,
@@ -26,18 +27,28 @@ const Index = () => {
   const [isHost, setIsHost] = useState(false);
   const isMobile = useIsMobile();
   
-  // Mock detection process
+  // Start the detection process
   const handleDetect = () => {
     setIsDetecting(true);
     setAppState(AppState.DETECTING);
+  };
+  
+  // Called when the waveform animation should start
+  const startListening = () => {
+    // This function is passed to DetectButton and is called when the user clicks to detect
+    console.log("Starting music detection process...");
+  };
+  
+  // Called when a song is successfully recognized
+  const handleSongRecognized = (song: any) => {
+    setRecognizedSong(song);
+    setIsDetecting(false);
+    setAppState(AppState.RESULT);
     
-    // Simulate recognition after 3 seconds
-    setTimeout(() => {
-      const randomSong = sampleSongs[Math.floor(Math.random() * sampleSongs.length)];
-      setRecognizedSong(randomSong);
-      setIsDetecting(false);
-      setAppState(AppState.RESULT);
-    }, 3000);
+    toast({
+      title: "Song Recognized!",
+      description: `${song.title} by ${song.artist}`,
+    });
   };
   
   const handleCancelDetection = () => {
@@ -106,7 +117,8 @@ const Index = () => {
             <div className="relative">
               <DetectButton 
                 onDetect={handleDetect} 
-                isDetecting={isDetecting} 
+                isDetecting={isDetecting}
+                startListening={startListening}
               />
             </div>
             
@@ -125,7 +137,8 @@ const Index = () => {
       {appState === AppState.DETECTING && (
         <RecognitionScreen 
           isListening={isDetecting} 
-          onCancel={handleCancelDetection} 
+          onCancel={handleCancelDetection}
+          onSongRecognized={handleSongRecognized}
         />
       )}
       

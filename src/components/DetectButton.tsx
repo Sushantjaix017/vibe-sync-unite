@@ -1,13 +1,40 @@
 
 import React from 'react';
 import { Music } from 'lucide-react';
+import { recordAudio, recognizeMusic } from '@/utils/musicDetection';
+import { toast } from '@/hooks/use-toast';
 
 interface DetectButtonProps {
   onDetect: () => void;
   isDetecting: boolean;
+  startListening: () => void;
 }
 
-const DetectButton: React.FC<DetectButtonProps> = ({ onDetect, isDetecting }) => {
+const DetectButton: React.FC<DetectButtonProps> = ({ onDetect, isDetecting, startListening }) => {
+  const handleDetectClick = async () => {
+    if (isDetecting) return;
+    
+    try {
+      // Inform the parent that we're starting detection
+      onDetect();
+      startListening();
+      
+      // Show toast notification
+      toast({
+        title: "Listening for music...",
+        description: "Please hold your device close to the music source",
+      });
+      
+    } catch (error) {
+      console.error('Error in detect button:', error);
+      toast({
+        title: "Detection Error",
+        description: error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="flex flex-col items-center relative">
       <div className="absolute top-[-30px] left-[-30px] opacity-10 text-2xl float-slow">
@@ -21,7 +48,7 @@ const DetectButton: React.FC<DetectButtonProps> = ({ onDetect, isDetecting }) =>
       </div>
       
       <button
-        onClick={onDetect}
+        onClick={handleDetectClick}
         disabled={isDetecting}
         className={`relative flex items-center justify-center w-20 h-20 md:w-24 md:h-24 rounded-full btn-primary ${
           isDetecting ? 'opacity-75' : 'hover:scale-105'
