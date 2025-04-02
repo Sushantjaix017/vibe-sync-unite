@@ -8,6 +8,7 @@ import Player from '@/components/Player';
 import Header from '@/components/Header';
 import { sampleSongs, generateRoomCode } from '@/utils/mockData';
 import { Music } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 enum AppState {
   HOME,
@@ -23,6 +24,7 @@ const Index = () => {
   const [recognizedSong, setRecognizedSong] = useState(sampleSongs[0]);
   const [roomCode, setRoomCode] = useState<string | undefined>();
   const [isHost, setIsHost] = useState(false);
+  const isMobile = useIsMobile();
   
   // Mock detection process
   const handleDetect = () => {
@@ -70,34 +72,50 @@ const Index = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-b from-white to-purple-50 dark:from-syncme-dark dark:to-black">
+    <div className="flex flex-col min-h-screen space-bg cosmic-dots overflow-hidden">
       {appState === AppState.HOME && (
         <>
           <Header />
-          <main className="flex-1 flex flex-col items-center justify-center p-6">
-            <div className="text-center mb-10 animate-fade-in">
-              <div className="flex justify-center mb-4">
-                <div className="bg-syncme-light-purple p-4 rounded-full">
-                  <Music className="h-10 w-10 text-white" />
+          <main className="flex-1 flex flex-col items-center justify-center p-6 relative">
+            {/* Floating music emojis */}
+            <div className="absolute top-10 left-[10%] text-2xl opacity-20 float-slow">🎵</div>
+            <div className="absolute top-[15%] right-[15%] text-3xl opacity-15 float">🎶</div>
+            <div className="absolute bottom-[20%] left-[20%] text-xl opacity-20 float-fast">🎧</div>
+            <div className="absolute bottom-[30%] right-[10%] text-2xl opacity-10 float-slow">🎤</div>
+            
+            <div className="text-center mb-10 animate-fade-in max-w-md">
+              <div className="flex justify-center mb-6">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-syncme-light-purple rounded-full blur-xl opacity-30"></div>
+                  <div className="bg-gradient-to-br from-syncme-light-purple to-syncme-purple p-5 rounded-full relative z-10">
+                    <Music className="h-12 w-12 text-white" />
+                  </div>
                 </div>
               </div>
-              <h1 className="text-3xl font-bold mb-2">SyncMe</h1>
-              <p className="text-gray-600 dark:text-gray-300">
-                Detect, play, and share music in real-time
+              <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-purple-300 to-blue-300 text-transparent bg-clip-text drop-shadow-md">
+                Sync<span className="text-syncme-light-purple">Me</span> 
+              </h1>
+              <p className="text-blue-200/80 mb-2">
+                Detect, play, and share music in real-time ✨
+              </p>
+              <p className="text-blue-200/50 text-sm mt-2 max-w-xs mx-auto">
+                Let's bring your music experience to the next level
               </p>
             </div>
             
-            <DetectButton 
-              onDetect={handleDetect} 
-              isDetecting={isDetecting} 
-            />
+            <div className="relative">
+              <DetectButton 
+                onDetect={handleDetect} 
+                isDetecting={isDetecting} 
+              />
+            </div>
             
-            <div className="mt-16 text-center animate-fade-in">
-              <h2 className="font-medium mb-2">How it works</h2>
-              <ol className="text-gray-600 dark:text-gray-300 space-y-2 text-sm">
-                <li>1. Tap the button to detect music playing around you</li>
-                <li>2. Choose to play alone or vibe with friends</li>
-                <li>3. Create or join a room to sync music playback</li>
+            <div className="mt-12 text-center animate-fade-in bg-white/5 backdrop-blur-md p-5 rounded-xl border border-white/10 max-w-xs">
+              <h2 className="font-medium mb-2 text-blue-200">How it works</h2>
+              <ol className="text-blue-200/70 space-y-2 text-sm text-left">
+                <li className="flex items-center"><span className="mr-2 bg-syncme-light-purple/20 w-6 h-6 rounded-full flex items-center justify-center">1</span> Tap to detect music playing around you 🎵</li>
+                <li className="flex items-center"><span className="mr-2 bg-syncme-light-purple/20 w-6 h-6 rounded-full flex items-center justify-center">2</span> Choose to play solo or vibe with friends 👥</li>
+                <li className="flex items-center"><span className="mr-2 bg-syncme-light-purple/20 w-6 h-6 rounded-full flex items-center justify-center">3</span> Create or join a room to sync music 🚀</li>
               </ol>
             </div>
           </main>
@@ -112,8 +130,8 @@ const Index = () => {
       )}
       
       {appState === AppState.RESULT && (
-        <div className="min-h-screen flex flex-col">
-          <Header title="Song Recognized" showBackButton={true} />
+        <div className="min-h-screen flex flex-col space-bg cosmic-dots">
+          <Header title="Song Recognized ✓" showBackButton={true} />
           <div className="flex-1 flex flex-col items-center justify-center p-6">
             <SongResult 
               song={recognizedSong}

@@ -48,60 +48,73 @@ const Player: React.FC<PlayerProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full gradient-bg animate-fade-in">
-      <Header title={roomCode ? `Room: ${roomCode}` : "Now Playing"} showBackButton={true} />
+    <div className="flex flex-col h-full space-bg cosmic-dots animate-fade-in">
+      <Header title={roomCode ? `Room: ${roomCode}` : "Now Playing 🎵"} showBackButton={true} />
       
       {roomCode && (
-        <div className="flex items-center justify-between px-4 py-2 bg-syncme-light-purple/30">
+        <div className="flex items-center justify-between px-4 py-2 bg-syncme-light-purple/10 backdrop-blur-md border-b border-syncme-light-purple/10">
           <div className="flex items-center">
-            <Users size={18} className="mr-1" />
-            <span className="text-sm text-white">{participants} listener{participants !== 1 ? 's' : ''}</span>
+            <div className="emoji-bg mr-2 w-8 h-8">
+              <span className="text-lg">👥</span>
+            </div>
+            <span className="text-sm text-blue-200">{participants} listener{participants !== 1 ? 's' : ''}</span>
           </div>
-          {isHost && <span className="text-xs bg-syncme-orange px-2 py-1 rounded-full">Host</span>}
+          {isHost && <span className="text-xs bg-syncme-orange px-2 py-1 rounded-full">🎮 Host</span>}
           <button 
             onClick={() => setShowChat(!showChat)}
-            className="flex items-center text-sm text-white"
+            className="flex items-center text-sm text-blue-200"
           >
-            <MessageCircle size={18} className="mr-1" />
+            <div className="emoji-bg mr-2 w-8 h-8">
+              <span className="text-lg">💬</span>
+            </div>
             Chat
           </button>
         </div>
       )}
       
-      <div className="flex-1 flex flex-col items-center justify-between px-6 py-8">
-        {/* YouTube player placeholder */}
-        <div className="w-full aspect-video bg-black rounded-lg overflow-hidden shadow-lg mb-6">
-          <div className="w-full h-full flex items-center justify-center text-white/50">
+      <div className="flex-1 flex flex-col items-center justify-between px-6 py-8 relative">
+        {/* Floating emojis */}
+        <div className="absolute top-10 left-[10%] text-xl opacity-10 float-slow">🎵</div>
+        <div className="absolute top-[15%] right-[15%] text-xl opacity-10 float">🎶</div>
+        <div className="absolute bottom-[20%] left-[20%] text-xl opacity-10 float-fast">🎧</div>
+        
+        {/* YouTube player placeholder with glow */}
+        <div className="w-full aspect-video bg-syncme-dark/80 rounded-lg overflow-hidden shadow-[0_0_30px_rgba(155,135,245,0.2)] mb-6 backdrop-blur-md border border-syncme-light-purple/10">
+          <div className="w-full h-full flex items-center justify-center text-blue-200/50">
             <p>YouTube Player will appear here</p>
           </div>
         </div>
         
         <div className="w-full">
           <div className="mb-4">
-            <h2 className="text-xl font-bold text-white">{song.title}</h2>
-            <p className="text-white/80">{song.artist}</p>
+            <h2 className="text-xl font-bold text-white flex items-center">
+              <span className="mr-2">🎵</span> {song.title}
+            </h2>
+            <p className="text-blue-200/80 flex items-center">
+              <span className="mr-2">👨‍🎤</span> {song.artist}
+            </p>
           </div>
           
-          <div className="w-full h-1 bg-white/20 rounded-full mb-2">
+          <div className="w-full h-2 bg-syncme-light-purple/10 rounded-full mb-2 overflow-hidden">
             <div 
-              className="h-full bg-white rounded-full"
+              className="h-full bg-gradient-to-r from-syncme-light-purple to-syncme-purple rounded-full"
               style={{ width: `${progress}%` }}
             ></div>
           </div>
           
-          <div className="flex justify-between text-sm text-white/70 mb-6">
+          <div className="flex justify-between text-sm text-blue-200/70 mb-6">
             <span>{formatTime(progress)}</span>
             <span>{formatTime(100)}</span>
           </div>
           
           <div className="flex items-center justify-center space-x-8">
-            <button className="text-white/70 hover:text-white transition-colors">
+            <button className="text-blue-200/70 hover:text-white transition-colors">
               <SkipBack size={28} />
             </button>
             
             <button 
               onClick={() => setIsPlaying(!isPlaying)}
-              className="w-14 h-14 rounded-full bg-white flex items-center justify-center text-syncme-light-purple hover:bg-white/90 transition-colors"
+              className="w-16 h-16 rounded-full bg-syncme-light-purple flex items-center justify-center text-white hover:bg-syncme-purple transition-colors shadow-[0_0_20px_rgba(155,135,245,0.5)]"
             >
               {isPlaying ? (
                 <Pause size={30} />
@@ -110,7 +123,7 @@ const Player: React.FC<PlayerProps> = ({
               )}
             </button>
             
-            <button className="text-white/70 hover:text-white transition-colors">
+            <button className="text-blue-200/70 hover:text-white transition-colors">
               <SkipForward size={28} />
             </button>
           </div>
@@ -118,27 +131,40 @@ const Player: React.FC<PlayerProps> = ({
       </div>
       
       {showChat && (
-        <div className="fixed inset-0 z-50 bg-syncme-dark/95 animate-slide-up flex flex-col">
-          <Header title="Room Chat" showBackButton={false} />
+        <div className="fixed inset-0 z-50 space-bg cosmic-dots animate-slide-up flex flex-col">
+          <Header title="Room Chat 💬" showBackButton={false} />
           
-          <div className="flex-1 p-4">
-            <p className="text-center text-white/50">Chat messages will appear here</p>
+          <div className="flex-1 p-4 overflow-y-auto">
+            <div className="bg-syncme-dark/40 backdrop-blur-md rounded-lg p-4 border border-syncme-light-purple/10 mb-4">
+              <div className="text-xs text-blue-200/50 mb-1">System</div>
+              <p className="text-blue-200">Welcome to the chat room! 👋</p>
+            </div>
+            
+            <div className="bg-syncme-dark/40 backdrop-blur-md rounded-lg p-4 border border-syncme-light-purple/10 mb-4 ml-auto max-w-[80%]">
+              <div className="text-xs text-blue-200/50 mb-1">You</div>
+              <p className="text-blue-200">This song is awesome! 🔥</p>
+            </div>
+            
+            <div className="bg-syncme-dark/40 backdrop-blur-md rounded-lg p-4 border border-syncme-light-purple/10 mb-4">
+              <div className="text-xs text-blue-200/50 mb-1">User123</div>
+              <p className="text-blue-200">Yeah! Love this track 💃</p>
+            </div>
           </div>
           
-          <div className="p-4 bg-syncme-dark">
+          <div className="p-4 bg-syncme-dark/80 backdrop-blur-lg border-t border-syncme-light-purple/10">
             <div className="flex">
               <input 
                 type="text" 
                 placeholder="Type a message..." 
-                className="flex-1 p-3 rounded-l-lg bg-white/10 text-white focus:outline-none"
+                className="flex-1 p-3 rounded-l-lg bg-syncme-dark/50 text-white border border-syncme-light-purple/20 focus:outline-none focus:ring-1 focus:ring-syncme-light-purple/50"
               />
-              <button className="px-4 rounded-r-lg bg-syncme-light-purple text-white">
+              <button className="px-4 rounded-r-lg bg-syncme-light-purple text-white hover:bg-syncme-purple transition-colors">
                 Send
               </button>
             </div>
             <button 
               onClick={() => setShowChat(false)}
-              className="w-full mt-4 py-2 text-white/70 hover:text-white"
+              className="w-full mt-4 py-2 text-blue-200/70 hover:text-white bg-syncme-dark/40 rounded-lg border border-syncme-light-purple/10"
             >
               Close Chat
             </button>

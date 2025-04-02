@@ -70,6 +70,8 @@ export default {
 					orange: '#F97316',
 					blue: '#0EA5E9',
 					dark: '#1A1F2C',
+					'deep-blue': '#19213B',
+					darkest: '#0F1120',
 					light: '#F6F6F7',
 				}
 			},
@@ -124,6 +126,11 @@ export default {
 				'slide-down': {
 					'0%': { transform: 'translateY(-100%)' },
 					'100%': { transform: 'translateY(0)' }
+				},
+				'star-pulse': {
+					'0%': { transform: 'scale(1)', opacity: '0.7' },
+					'50%': { transform: 'scale(1.2)', opacity: '1' },
+					'100%': { transform: 'scale(1)', opacity: '0.7' }
 				}
 			},
 			animation: {
@@ -133,7 +140,8 @@ export default {
 				'wave': 'wave 1.2s infinite ease-in-out',
 				'fade-in': 'fade-in 0.5s ease-out',
 				'slide-up': 'slide-up 0.4s ease-out',
-				'slide-down': 'slide-down 0.4s ease-out'
+				'slide-down': 'slide-down 0.4s ease-out',
+				'star-pulse': 'star-pulse 3s infinite ease-in-out'
 			}
 		}
 	},
