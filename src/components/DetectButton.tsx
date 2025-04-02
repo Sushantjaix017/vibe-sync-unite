@@ -1,7 +1,5 @@
-
 import React from 'react';
 import { Music } from 'lucide-react';
-import { recordAudio, recognizeMusic } from '@/utils/musicDetection';
 import { toast } from '@/hooks/use-toast';
 
 interface DetectButtonProps {

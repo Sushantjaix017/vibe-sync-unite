@@ -1,51 +1,36 @@
 
 import React from 'react';
-import { Music } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { cn } from '@/lib/utils';
+import { ChevronLeft } from 'lucide-react';
 
 interface HeaderProps {
   title?: string;
   showBackButton?: boolean;
-  className?: string;
+  onBack?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
   title = "SyncMe", 
   showBackButton = false,
-  className 
+  onBack
 }) => {
-  const navigate = useNavigate();
-
   return (
-    <header className={cn(
-      "flex items-center justify-between p-4 text-white shadow-md animate-fade-in backdrop-blur-md bg-syncme-dark/40 border-b border-syncme-light-purple/10",
-      className
-    )}>
+    <header className="p-4 flex items-center justify-between border-b border-syncme-light-purple/10 backdrop-blur-md bg-syncme-dark/30 sticky top-0 z-10">
       <div className="flex items-center">
-        {showBackButton && (
+        {showBackButton && onBack && (
           <button 
-            onClick={() => navigate(-1)}
-            className="mr-2 p-1.5 rounded-full hover:bg-white/10 transition-colors"
+            onClick={onBack}
+            className="mr-2 w-8 h-8 flex items-center justify-center rounded-full bg-syncme-dark/50 text-blue-200"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
+            <ChevronLeft size={20} />
           </button>
         )}
-        <div className="flex items-center">
-          <div className="bg-syncme-light-purple/20 p-1.5 rounded-full mr-2">
-            <Music className="h-5 w-5" />
-          </div>
-          <h1 className="text-xl font-bold bg-gradient-to-r from-purple-300 to-blue-200 text-transparent bg-clip-text">{title}</h1>
-        </div>
+        <h1 className="text-lg font-bold text-white">{title}</h1>
       </div>
-      <div className="flex items-center">
-        <button className="p-2 rounded-full hover:bg-white/10 transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+      
+      <div className="flex items-center space-x-2">
+        <div className="text-xs text-syncme-light-purple">
+          Beta
+        </div>
       </div>
     </header>
   );

@@ -1,7 +1,10 @@
-import React, { useState, useCallback, useRef } from 'react';
-import { Play, Pause, SkipForward, SkipBack, Users, MessageCircle } from 'lucide-react';
+
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { Play, Pause, SkipForward, SkipBack } from 'lucide-react';
 import Header from './Header';
 import YoutubeIframe from 'react-native-youtube-iframe';
+import { getYoutubeVideoId } from '@/utils/youtubeApi';
+import { toast } from '@/hooks/use-toast';
 
 interface PlayerProps {
   song: {
@@ -26,9 +29,26 @@ const Player: React.FC<PlayerProps> = ({
   const [progress, setProgress] = useState(0);
   const [showChat, setShowChat] = useState(false);
   const [youtubeReady, setYoutubeReady] = useState(false);
+  const [videoId, setVideoId] = useState<string | null>(null);
   const playerRef = useRef(null);
-
-  const videoId = getYoutubeVideoId(`${song.title} ${song.artist}`);
+  
+  useEffect(() => {
+    const fetchYoutubeId = async () => {
+      try {
+        const id = await getYoutubeVideoId(`${song.title} ${song.artist}`);
+        setVideoId(id);
+      } catch (error) {
+        console.error('Error fetching YouTube video:', error);
+        toast({
+          title: "YouTube Error",
+          description: "Could not load the song video. Please try again.",
+          variant: "destructive"
+        });
+      }
+    };
+    
+    fetchYoutubeId();
+  }, [song]);
 
   const onStateChange = useCallback((state) => {
     if (state === 'ended') {
@@ -44,11 +64,6 @@ const Player: React.FC<PlayerProps> = ({
     setIsPlaying(prev => !prev);
   }, []);
 
-  function getYoutubeVideoId(query: string): string {
-    console.log(`Would search YouTube for: ${query}`);
-    return 'dQw4w9WgXcQ';
-  }
-
   const formatTime = (percentage: number) => {
     const totalSeconds = 180 * (percentage / 100);
     const minutes = Math.floor(totalSeconds / 60);
@@ -58,7 +73,7 @@ const Player: React.FC<PlayerProps> = ({
 
   return (
     <div className="flex flex-col h-full space-bg cosmic-dots animate-fade-in">
-      <Header title={roomCode ? `Room: ${roomCode}` : "Now Playing 🎵"} showBackButton={true} onBackClick={onBack} />
+      <Header title={roomCode ? `Room: ${roomCode}` : "Now Playing 🎵"} showBackButton={true} onBack={onBack} />
       
       {roomCode && (
         <div className="flex items-center justify-between px-4 py-2 bg-syncme-light-purple/10 backdrop-blur-md border-b border-syncme-light-purple/10">
@@ -87,22 +102,27 @@ const Player: React.FC<PlayerProps> = ({
         <div className="absolute bottom-[20%] left-[20%] text-xl opacity-10 float-fast">🎧</div>
         
         <div className="w-full aspect-video bg-syncme-dark/80 rounded-lg overflow-hidden shadow-[0_0_30px_rgba(155,135,245,0.2)] mb-6 backdrop-blur-md border border-syncme-light-purple/10">
-          <YoutubeIframe
-            ref={playerRef}
-            height="100%"
-            width="100%"
-            videoId={videoId}
-            play={isPlaying}
-            onChangeState={onStateChange}
-            onReady={() => setYoutubeReady(true)}
-            initialPlayerParams={{
-              preventFullScreen: true,
-              controls: false,
-              showinfo: false,
-              rel: false,
-              modestbranding: true
-            }}
-          />
+          {videoId ? (
+            <YoutubeIframe
+              ref={playerRef}
+              height={300}
+              width={400}
+              videoId={videoId}
+              play={isPlaying}
+              onChangeState={onStateChange}
+              onReady={() => setYoutubeReady(true)}
+              initialPlayerParams={{
+                preventFullScreen: true,
+                controls: false,
+                modestbranding: true,
+                rel: false
+              }}
+            />
+          ) : (
+            <div className="h-full w-full flex items-center justify-center">
+              <div className="animate-pulse text-blue-200">Loading video...</div>
+            </div>
+          )}
         </div>
         
         <div className="w-full">
