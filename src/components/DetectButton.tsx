@@ -22,7 +22,7 @@ const DetectButton: React.FC<DetectButtonProps> = ({ onDetect, isDetecting, star
       // Show toast notification
       toast({
         title: "Listening for music...",
-        description: "Please hold your device close to the music source",
+        description: "Please hold your device close to the music source 🎵",
       });
       
     } catch (error) {
@@ -59,7 +59,7 @@ const DetectButton: React.FC<DetectButtonProps> = ({ onDetect, isDetecting, star
             <span className="absolute w-full h-full rounded-full bg-syncme-light-purple animate-pulse-ring"></span>
             <span className="absolute w-32 h-32 md:w-36 md:h-36 rounded-full border-2 border-syncme-light-purple/30"></span>
             <span className="absolute w-44 h-44 md:w-48 md:h-48 rounded-full border border-syncme-light-purple/20"></span>
-            <Music className="w-8 h-8 md:w-10 md:h-10 text-white" />
+            <Music className="w-8 h-8 md:w-10 md:h-10 text-white animate-pulse" />
           </>
         ) : (
           <>
