@@ -1,7 +1,8 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, SkipForward, SkipBack, Users, MessageCircle, Music, Video } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Music, Video } from 'lucide-react';
 import Header from './Header';
-import YoutubeIframe from 'react-native-youtube-iframe';
+import YouTube from 'react-youtube';
 
 interface PlayerProps {
   song: {
@@ -42,22 +43,47 @@ const Player: React.FC<PlayerProps> = ({
   }, []);
 
   const togglePlayPause = () => {
-    setIsPlaying(!isPlaying);
+    if (playerRef.current) {
+      if (isPlaying) {
+        playerRef.current.internalPlayer.pauseVideo();
+      } else {
+        playerRef.current.internalPlayer.playVideo();
+      }
+      setIsPlaying(!isPlaying);
+    }
   };
 
-  const onStateChange = (state: string) => {
-    if (state === 'playing') {
+  const onStateChange = (event: any) => {
+    // YouTube player states: -1 (unstarted), 0 (ended), 1 (playing), 2 (paused), 3 (buffering), 5 (video cued)
+    const playerState = event.data;
+    
+    if (playerState === 1) {
       setIsPlaying(true);
-    } else if (state === 'paused') {
+    } else if (playerState === 2) {
       setIsPlaying(false);
     }
   };
 
-  const updateProgress = (data: { currentTime: number, duration: number }) => {
-    setCurrentTime(data.currentTime);
-    setDuration(data.duration);
-    const progressPercent = (data.currentTime / data.duration) * 100;
-    setProgress(progressPercent);
+  const onPlayerReady = (event: any) => {
+    // Store player reference and start playback
+    playerRef.current = event.target;
+    if (isPlaying) {
+      playerRef.current.playVideo();
+    }
+    
+    // Start interval to track progress
+    const intervalId = setInterval(() => {
+      if (playerRef.current) {
+        const currentTime = playerRef.current.getCurrentTime() || 0;
+        const duration = playerRef.current.getDuration() || 0;
+        setCurrentTime(currentTime);
+        setDuration(duration);
+        const progressPercent = (currentTime / duration) * 100;
+        setProgress(progressPercent);
+      }
+    }, 1000);
+
+    return () => clearInterval(intervalId);
   };
 
   const formatTime = (seconds: number) => {
@@ -70,7 +96,19 @@ const Player: React.FC<PlayerProps> = ({
     setVideoMode(!videoMode);
   };
 
-  const playerHeight = videoMode ? containerWidth * 0.5625 : 0;
+  const playerHeight = videoMode ? Math.min(containerWidth * 0.5625, 360) : 0;
+  const playerOptions = {
+    height: playerHeight,
+    width: '100%',
+    playerVars: {
+      autoplay: isPlaying ? 1 : 0,
+      controls: 0,
+      modestbranding: 1,
+      rel: 0,
+      showinfo: 0,
+      fs: 0
+    }
+  };
 
   return (
     <div className="flex flex-col h-full space-bg cosmic-dots animate-fade-in">
@@ -105,28 +143,13 @@ const Player: React.FC<PlayerProps> = ({
         <div className="w-full mb-6 overflow-hidden rounded-lg shadow-[0_0_30px_rgba(155,135,245,0.2)] border border-syncme-light-purple/10">
           {song.youtubeId ? (
             videoMode ? (
-              <div style={{ height: playerHeight }}>
-                <YoutubeIframe
-                  height={playerHeight}
-                  width={containerWidth}
-                  play={isPlaying}
+              <div className="w-full" style={{ height: playerHeight }}>
+                <YouTube
                   videoId={song.youtubeId}
-                  onChangeState={onStateChange}
-                  onReady={() => console.log("YouTube player ready")}
-                  onPlaybackQualityChange={() => {}}
-                  onError={() => console.log("YouTube player error")}
-                  onPlaybackRateChange={() => {}}
-                  forceAndroidAutoplay={true}
-                  webViewProps={{}}
-                  onFullScreenChange={() => {}}
-                  initialPlayerParams={{
-                    preventFullScreen: false,
-                    modestbranding: true,
-                    showClosedCaptions: false,
-                    rel: false,
-                    controls: false
-                  }}
-                  onProgress={updateProgress}
+                  opts={playerOptions}
+                  onReady={onPlayerReady}
+                  onStateChange={onStateChange}
+                  className="w-full h-full"
                 />
               </div>
             ) : (
