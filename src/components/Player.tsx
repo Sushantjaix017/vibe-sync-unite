@@ -35,6 +35,7 @@ const Player: React.FC<PlayerProps> = ({
   const [containerWidth, setContainerWidth] = useState(window.innerWidth);
   const [playerError, setPlayerError] = useState(false);
   const [songTitle, setSongTitle] = useState('');
+  const [videoConfirmed, setVideoConfirmed] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -56,6 +57,7 @@ const Player: React.FC<PlayerProps> = ({
       setCurrentTime(0);
       setDuration(0);
       setSongTitle('');
+      setVideoConfirmed(false);
       
       // If the player is already ready, play the song
       if (playerRef.current && playerRef.current.internalPlayer) {
@@ -92,7 +94,7 @@ const Player: React.FC<PlayerProps> = ({
       setIsPlaying(true);
       
       // When playback starts, try to get the video title to confirm it's the right song
-      if (!songTitle && playerRef.current && playerRef.current.internalPlayer) {
+      if (!videoConfirmed && playerRef.current && playerRef.current.internalPlayer) {
         try {
           playerRef.current.internalPlayer.getVideoData().then((data: any) => {
             if (data && data.title) {
@@ -104,11 +106,24 @@ const Player: React.FC<PlayerProps> = ({
               const expectedArtist = song.artist.toLowerCase();
               const expectedTitle = song.title.toLowerCase();
               
-              if (!videoTitle.includes(expectedArtist) && !videoTitle.includes(expectedTitle)) {
+              // Check if the video matches what we expect
+              const artistMatch = videoTitle.includes(expectedArtist);
+              const titleMatch = videoTitle.includes(expectedTitle);
+              
+              setVideoConfirmed(true);
+              
+              if (!artistMatch && !titleMatch) {
                 console.warn("Video title doesn't match expected song:", data.title);
                 toast({
-                  title: "Song Mismatch Warning",
+                  title: "Song Mismatch",
                   description: `Playing closest match to "${song.artist} - ${song.title}"`,
+                  variant: "default"
+                });
+              } else if (artistMatch && titleMatch) {
+                console.log("Perfect match confirmed!");
+                toast({
+                  title: "Now Playing",
+                  description: `${song.artist} - ${song.title}`,
                   variant: "default"
                 });
               }
@@ -235,6 +250,7 @@ const Player: React.FC<PlayerProps> = ({
                   opts={playerOptions}
                   onReady={onPlayerReady}
                   onStateChange={onStateChange}
+                  onError={onPlayerError}
                   className="w-full h-full"
                 />
               </div>
