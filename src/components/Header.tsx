@@ -1,21 +1,40 @@
 
 import React from 'react';
 import { Music } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 interface HeaderProps {
   title?: string;
   showBackButton?: boolean;
   className?: string;
+  onBackClick?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
   title = "SyncMe", 
   showBackButton = false,
-  className 
+  className,
+  onBackClick
 }) => {
-  const navigate = useNavigate();
+  // Use try-catch to handle the case when useNavigate is used outside Router context
+  let navigate: ReturnType<typeof useNavigate> | null = null;
+  let location = { pathname: '/' };
+  
+  try {
+    navigate = useNavigate();
+    location = useLocation();
+  } catch (error) {
+    console.log('Navigation hooks not available, using fallback');
+  }
+
+  const handleBackClick = () => {
+    if (onBackClick) {
+      onBackClick();
+    } else if (navigate) {
+      navigate(-1);
+    }
+  };
 
   return (
     <header className={cn(
@@ -25,7 +44,7 @@ const Header: React.FC<HeaderProps> = ({
       <div className="flex items-center">
         {showBackButton && (
           <button 
-            onClick={() => navigate(-1)}
+            onClick={handleBackClick}
             className="mr-2 p-1.5 rounded-full hover:bg-white/10 transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

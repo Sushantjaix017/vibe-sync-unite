@@ -152,7 +152,11 @@ const Index = () => {
       
       {appState === AppState.RESULT && (
         <div className="min-h-screen flex flex-col space-bg cosmic-dots">
-          <Header title="Song Recognized ✓" showBackButton={true} />
+          <Header 
+            title="Song Recognized ✓" 
+            showBackButton={true} 
+            onBackClick={() => setAppState(AppState.HOME)}
+          />
           <div className="flex-1 flex flex-col items-center justify-center p-6">
             <SongResult 
               song={recognizedSong}
