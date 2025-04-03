@@ -25,6 +25,7 @@ const Index = () => {
   const [recognizedSong, setRecognizedSong] = useState(sampleSongs[0]);
   const [roomCode, setRoomCode] = useState<string | undefined>();
   const [isHost, setIsHost] = useState(false);
+  const [videoMode, setVideoMode] = useState(true);
   const isMobile = useIsMobile();
   
   // Start the detection process
@@ -57,6 +58,13 @@ const Index = () => {
   };
   
   const handlePlay = () => {
+    setVideoMode(true);
+    setAppState(AppState.PLAYING);
+    setIsHost(true);
+  };
+  
+  const handleAudioOnly = () => {
+    setVideoMode(false);
     setAppState(AppState.PLAYING);
     setIsHost(true);
   };

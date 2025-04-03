@@ -1,13 +1,14 @@
 
 import React from 'react';
-import { Play, Users, Music } from 'lucide-react';
+import { Play, Users, Music, Video } from 'lucide-react';
 
 interface PlayOptionsProps {
   onPlay: () => void;
   onVibeTogether: () => void;
+  onAudioOnly?: () => void;
 }
 
-const PlayOptions: React.FC<PlayOptionsProps> = ({ onPlay, onVibeTogether }) => {
+const PlayOptions: React.FC<PlayOptionsProps> = ({ onPlay, onVibeTogether, onAudioOnly }) => {
   return (
     <div className="w-full max-w-md p-4 space-y-5 animate-fade-in">
       <button 
@@ -15,9 +16,19 @@ const PlayOptions: React.FC<PlayOptionsProps> = ({ onPlay, onVibeTogether }) => 
         className="w-full flex items-center justify-center p-4 rounded-xl bg-syncme-light-purple hover:bg-syncme-purple text-white transition-all card-hover shadow-[0_0_15px_rgba(155,135,245,0.3)]"
       >
         <div className="emoji-bg mr-3">
-          <Play size={20} className="text-white" />
+          <Video size={20} className="text-white" />
         </div>
-        <span className="text-lg font-medium">Play Now</span>
+        <span className="text-lg font-medium">Play with Video</span>
+      </button>
+      
+      <button 
+        onClick={onAudioOnly || onPlay}
+        className="w-full flex items-center justify-center p-4 rounded-xl bg-syncme-purple/80 hover:bg-syncme-purple text-white transition-all card-hover shadow-[0_0_15px_rgba(155,135,245,0.3)]"
+      >
+        <div className="emoji-bg mr-3">
+          <Music size={20} className="text-white" />
+        </div>
+        <span className="text-lg font-medium">Audio Only</span>
       </button>
       
       <button 
