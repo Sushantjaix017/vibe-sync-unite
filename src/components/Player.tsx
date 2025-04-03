@@ -34,6 +34,7 @@ const Player: React.FC<PlayerProps> = ({
   const playerRef = useRef<any>(null);
   const [containerWidth, setContainerWidth] = useState(window.innerWidth);
   const [playerError, setPlayerError] = useState(false);
+  const [songTitle, setSongTitle] = useState('');
 
   useEffect(() => {
     const handleResize = () => {
@@ -43,6 +44,26 @@ const Player: React.FC<PlayerProps> = ({
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // When the song changes, validate it's playing the right song
+  useEffect(() => {
+    if (song) {
+      console.log(`Song to play: ${song.artist} - ${song.title} (ID: ${song.youtubeId})`);
+      
+      // Reset player state for new song
+      setPlayerError(false);
+      setProgress(0);
+      setCurrentTime(0);
+      setDuration(0);
+      setSongTitle('');
+      
+      // If the player is already ready, play the song
+      if (playerRef.current && playerRef.current.internalPlayer) {
+        setIsPlaying(true);
+        playerRef.current.internalPlayer.playVideo();
+      }
+    }
+  }, [song]);
 
   const togglePlayPause = () => {
     if (playerRef.current && playerRef.current.internalPlayer) {
@@ -69,6 +90,37 @@ const Player: React.FC<PlayerProps> = ({
     
     if (playerState === 1) {
       setIsPlaying(true);
+      
+      // When playback starts, try to get the video title to confirm it's the right song
+      if (!songTitle && playerRef.current && playerRef.current.internalPlayer) {
+        try {
+          playerRef.current.internalPlayer.getVideoData().then((data: any) => {
+            if (data && data.title) {
+              setSongTitle(data.title);
+              console.log("Now playing:", data.title);
+              
+              // Very basic validation - check if both artist name and song title appear in the video title
+              const videoTitle = data.title.toLowerCase();
+              const expectedArtist = song.artist.toLowerCase();
+              const expectedTitle = song.title.toLowerCase();
+              
+              if (!videoTitle.includes(expectedArtist) && !videoTitle.includes(expectedTitle)) {
+                console.warn("Video title doesn't match expected song:", data.title);
+                toast({
+                  title: "Song Mismatch Warning",
+                  description: `Playing closest match to "${song.artist} - ${song.title}"`,
+                  variant: "default"
+                });
+              }
+            }
+          }).catch(() => {
+            // Ignore errors here, it's just additional validation
+          });
+        } catch (e) {
+          // If this fails, it's not critical
+          console.log("Couldn't get video data:", e);
+        }
+      }
     } else if (playerState === 2) {
       setIsPlaying(false);
     } else if (playerState === 0) {
