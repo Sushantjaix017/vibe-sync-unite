@@ -27,9 +27,8 @@ export const convertAuddResultToSong = (result: AuddResponse['result']) => {
   const albumArt = result.apple_music?.artwork?.url?.replace('{w}x{h}', '500x500') || 
     `https://ui-avatars.com/api/?name=${encodeURIComponent(result.title)}&background=8B5CF6&color=fff&size=256`;
   
-  // Create a YouTube search query from the song info for the YouTube ID
+  // Create a YouTube search query from the song info
   const youtubeSearchQuery = `${result.artist} ${result.title} official`;
-  const youtubeId = getYoutubeIdFromSearch(youtubeSearchQuery);
   
   return {
     title: result.title,
@@ -37,28 +36,71 @@ export const convertAuddResultToSong = (result: AuddResponse['result']) => {
     album: result.album || 'Unknown Album',
     albumArt,
     year: result.release_date?.split('-')[0] || 'Unknown',
-    youtubeId,
+    youtubeId: null, // We'll set this after the YouTube search
+    youtubeSearchQuery, // Add the search query to use later
   };
 };
 
-// Mock function to get a YouTube ID - in a real app, you'd use the YouTube API
-const getYoutubeIdFromSearch = (query: string): string => {
-  // This is a mock function that returns a hardcoded YouTube ID
-  // In a real app, you would make an API call to the YouTube Data API
+// Search for a YouTube video ID based on a query
+export const searchYouTubeVideo = async (query: string): Promise<string | null> => {
+  try {
+    console.log('Searching YouTube for:', query);
+    
+    // Use the YouTube API to search for videos
+    // For this demo, we'll use a simple proxy solution
+    const response = await fetch(`https://yt-api-proxy.glitch.me/search?q=${encodeURIComponent(query)}`);
+    const data = await response.json();
+    
+    if (data && data.items && data.items.length > 0) {
+      console.log('YouTube search results:', data.items);
+      // Return the first video result
+      return data.items[0].id.videoId;
+    } else {
+      console.log('No YouTube results found');
+      // Fallback to a hardcoded list if the API fails
+      return getYoutubeIdFromSearchFallback(query);
+    }
+  } catch (error) {
+    console.error('Error searching YouTube:', error);
+    // Fallback to a hardcoded list if the API fails
+    return getYoutubeIdFromSearchFallback(query);
+  }
+};
+
+// Fallback function to get a YouTube ID when API fails
+const getYoutubeIdFromSearchFallback = (query: string): string => {
+  console.log('Using fallback YouTube search for:', query);
+  
+  // Map of common artists to known YouTube IDs
+  const artistVideoMap: Record<string, string> = {
+    'Seafret': '1Fid2jjqsHViMX6xNH70hE', // Seafret - Atlantis
+    'Hozier': 'PJKx-FSib9g', // Hozier - Too Sweet
+    'Ed Sheeran': 'JGwWNGJdvx8', // Ed Sheeran - Shape of You
+    'Adele': 'rYEDA3JcQqw', // Adele - Rolling in the Deep
+    'Taylor Swift': 'KsZ6tMLUbPw', // Taylor Swift - Blank Space
+    'The Weeknd': 'XXYlFuWEuKI', // The Weeknd - Blinding Lights
+    'Billie Eilish': 'Ah0Ys50CqO8', // Billie Eilish - Bad Guy
+    'Coldplay': '1G4isv_Fylg', // Coldplay - Paradise
+    'Beyoncé': '4m1EFMoRFvY', // Beyoncé - Halo
+    'Bruno Mars': 'PMivT7MJ41M', // Bruno Mars - 24K Magic
+  };
+  
+  // Check if the query contains any of our mapped artists
+  for (const artist in artistVideoMap) {
+    if (query.toLowerCase().includes(artist.toLowerCase())) {
+      return artistVideoMap[artist];
+    }
+  }
+  
+  // If no match found, return a popular music video
   const popularMusicVideos = [
     'dQw4w9WgXcQ', // Rick Astley - Never Gonna Give You Up
-    '9bZkp7q19f0', // PSY - Gangnam Style
     'JGwWNGJdvx8', // Ed Sheeran - Shape of You
     'kJQP7kiw5Fk', // Luis Fonsi - Despacito ft. Daddy Yankee
     'RgKAFK5djSk', // Wiz Khalifa - See You Again ft. Charlie Puth
     'hT_nvWreIhg', // OneRepublic - Counting Stars
-    'CevxZvSJLk8', // Katy Perry - Roar
-    'OPf0YbXqDm0', // Mark Ronson - Uptown Funk ft. Bruno Mars
-    'fRh_vgS2dFE', // Justin Bieber - Sorry
-    'pRpeEdMmmQ0', // Maroon 5 - Sugar
   ];
   
-  // For demo purposes, return a random YouTube ID from the list
   return popularMusicVideos[Math.floor(Math.random() * popularMusicVideos.length)];
 };
 
@@ -131,7 +173,14 @@ export const recognizeMusic = async (audioBlob: Blob): Promise<any> => {
     console.log('API response:', data);
     
     if (data.status === 'success' && data.result) {
-      return convertAuddResultToSong(data.result);
+      const song = convertAuddResultToSong(data.result);
+      if (song) {
+        // Search for the song on YouTube
+        const youtubeId = await searchYouTubeVideo(song.youtubeSearchQuery);
+        song.youtubeId = youtubeId || 'dQw4w9WgXcQ'; // Fallback to Rick Astley if all else fails
+        console.log('Final song with YouTube ID:', song);
+      }
+      return song;
     } else {
       console.log('No song detected in the audio sample');
       throw new Error('No song detected. Please try again with clearer audio.');

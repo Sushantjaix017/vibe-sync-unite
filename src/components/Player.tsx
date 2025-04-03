@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Play, Pause, SkipForward, SkipBack, Music, Video } from 'lucide-react';
 import Header from './Header';
 import YouTube from 'react-youtube';
+import { toast } from "@/hooks/use-toast";
 
 interface PlayerProps {
   song: {
@@ -32,6 +33,7 @@ const Player: React.FC<PlayerProps> = ({
   const [duration, setDuration] = useState(0);
   const playerRef = useRef<any>(null);
   const [containerWidth, setContainerWidth] = useState(window.innerWidth);
+  const [playerError, setPlayerError] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -43,13 +45,21 @@ const Player: React.FC<PlayerProps> = ({
   }, []);
 
   const togglePlayPause = () => {
-    if (playerRef.current) {
-      if (isPlaying) {
-        playerRef.current.internalPlayer.pauseVideo();
-      } else {
-        playerRef.current.internalPlayer.playVideo();
+    if (playerRef.current && playerRef.current.internalPlayer) {
+      try {
+        if (isPlaying) {
+          playerRef.current.internalPlayer.pauseVideo();
+        } else {
+          playerRef.current.internalPlayer.playVideo();
+        }
+        setIsPlaying(!isPlaying);
+      } catch (error) {
+        console.error("Error toggling play/pause:", error);
+        setIsPlaying(!isPlaying); // Toggle state even if there's an error
       }
-      setIsPlaying(!isPlaying);
+    } else {
+      console.log("Player reference not available yet");
+      setIsPlaying(!isPlaying); // Toggle state even if player isn't ready
     }
   };
 
@@ -61,29 +71,53 @@ const Player: React.FC<PlayerProps> = ({
       setIsPlaying(true);
     } else if (playerState === 2) {
       setIsPlaying(false);
+    } else if (playerState === 0) {
+      // Video ended
+      setIsPlaying(false);
     }
   };
 
   const onPlayerReady = (event: any) => {
+    console.log("YouTube player ready");
     // Store player reference and start playback
     playerRef.current = event.target;
+    setPlayerError(false);
+    
     if (isPlaying) {
-      playerRef.current.playVideo();
+      try {
+        playerRef.current.playVideo();
+      } catch (err) {
+        console.error("Error starting playback:", err);
+      }
     }
     
     // Start interval to track progress
     const intervalId = setInterval(() => {
       if (playerRef.current) {
-        const currentTime = playerRef.current.getCurrentTime() || 0;
-        const duration = playerRef.current.getDuration() || 0;
-        setCurrentTime(currentTime);
-        setDuration(duration);
-        const progressPercent = (currentTime / duration) * 100;
-        setProgress(progressPercent);
+        try {
+          const currentTime = playerRef.current.getCurrentTime() || 0;
+          const duration = playerRef.current.getDuration() || 0;
+          setCurrentTime(currentTime);
+          setDuration(duration);
+          const progressPercent = (currentTime / duration) * 100;
+          setProgress(progressPercent);
+        } catch (err) {
+          console.error("Error updating progress:", err);
+        }
       }
     }, 1000);
 
     return () => clearInterval(intervalId);
+  };
+
+  const onPlayerError = (event: any) => {
+    console.error("YouTube player error:", event);
+    setPlayerError(true);
+    toast({
+      title: "Playback Error",
+      description: "Could not play this video. Try a different song.",
+      variant: "destructive"
+    });
   };
 
   const formatTime = (seconds: number) => {
