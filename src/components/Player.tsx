@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Play, Pause, SkipForward, SkipBack, Users, MessageCircle, Music, Video } from 'lucide-react';
 import Header from './Header';
-import YouTube from 'react-youtube';
+import YoutubeIframe from 'react-native-youtube-iframe';
 
 interface PlayerProps {
   song: {
@@ -27,86 +27,54 @@ const Player: React.FC<PlayerProps> = ({
   const [progress, setProgress] = useState(0);
   const [showChat, setShowChat] = useState(false);
   const [videoMode, setVideoMode] = useState(true);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   const playerRef = useRef<any>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [playerHeight, setPlayerHeight] = useState(0);
-  const [playerWidth, setPlayerWidth] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(window.innerWidth);
 
   useEffect(() => {
-    const updateDimensions = () => {
-      if (containerRef.current) {
-        const width = containerRef.current.offsetWidth;
-        setPlayerWidth(width);
-        setPlayerHeight(videoMode ? width * 0.5625 : 0);
-      }
+    const handleResize = () => {
+      setContainerWidth(window.innerWidth);
     };
 
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
-  }, [containerRef, videoMode]);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const togglePlayPause = () => {
-    if (playerRef.current) {
-      if (isPlaying) {
-        playerRef.current.internalPlayer.pauseVideo();
-      } else {
-        playerRef.current.internalPlayer.playVideo();
-      }
-      setIsPlaying(!isPlaying);
-    }
+    setIsPlaying(!isPlaying);
   };
 
-  const handlePlayerReady = (event: any) => {
-    playerRef.current = event.target;
-    if (isPlaying) {
-      event.target.playVideo();
-    }
-  };
-
-  const handlePlayerStateChange = (event: any) => {
-    const playerState = event.data;
-    if (playerState === 1) {
+  const onStateChange = (state: string) => {
+    if (state === 'playing') {
       setIsPlaying(true);
-    } else if (playerState === 2) {
+    } else if (state === 'paused') {
       setIsPlaying(false);
     }
-    
-    if (playerState === 1) {
-      const interval = setInterval(() => {
-        if (playerRef.current) {
-          const currentTime = playerRef.current.internalPlayer.getCurrentTime();
-          const duration = playerRef.current.internalPlayer.getDuration();
-          const progressPercent = (currentTime / duration) * 100;
-          setProgress(progressPercent);
-        }
-      }, 1000);
-      
-      return () => clearInterval(interval);
-    }
   };
 
-  const formatTime = (percentage: number) => {
-    if (!playerRef.current) return "0:00";
-    
-    try {
-      const duration = playerRef.current.internalPlayer.getDuration() || 180;
-      const totalSeconds = duration * (percentage / 100);
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = Math.floor(totalSeconds % 60);
-      return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-    } catch (error) {
-      return "0:00";
-    }
+  const updateProgress = (data: { currentTime: number, duration: number }) => {
+    setCurrentTime(data.currentTime);
+    setDuration(data.duration);
+    const progressPercent = (data.currentTime / data.duration) * 100;
+    setProgress(progressPercent);
+  };
+
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+    return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
   };
 
   const toggleVideoMode = () => {
     setVideoMode(!videoMode);
   };
 
+  const playerHeight = videoMode ? containerWidth * 0.5625 : 0;
+
   return (
     <div className="flex flex-col h-full space-bg cosmic-dots animate-fade-in">
-      <Header title={roomCode ? `Room: ${roomCode}` : "Now Playing 🎵"} showBackButton={true} />
+      <Header title={roomCode ? `Room: ${roomCode}` : "Now Playing 🎵"} showBackButton={true} onBackClick={onBack} />
       
       {roomCode && (
         <div className="flex items-center justify-between px-4 py-2 bg-syncme-light-purple/10 backdrop-blur-md border-b border-syncme-light-purple/10">
@@ -134,36 +102,41 @@ const Player: React.FC<PlayerProps> = ({
         <div className="absolute top-[15%] right-[15%] text-xl opacity-10 float">🎶</div>
         <div className="absolute bottom-[20%] left-[20%] text-xl opacity-10 float-fast">🎧</div>
         
-        <div 
-          ref={containerRef} 
-          className={`w-full mb-6 overflow-hidden rounded-lg shadow-[0_0_30px_rgba(155,135,245,0.2)] border border-syncme-light-purple/10 ${videoMode ? 'aspect-video' : 'h-16 bg-syncme-dark/80 backdrop-blur-md flex items-center justify-center'}`}
-        >
+        <div className="w-full mb-6 overflow-hidden rounded-lg shadow-[0_0_30px_rgba(155,135,245,0.2)] border border-syncme-light-purple/10">
           {song.youtubeId ? (
             videoMode ? (
-              <YouTube
-                videoId={song.youtubeId}
-                opts={{
-                  width: playerWidth.toString(),
-                  height: playerHeight.toString(),
-                  playerVars: {
-                    autoplay: isPlaying ? 1 : 0,
-                    controls: 0,
-                    modestbranding: 1,
-                    rel: 0
-                  },
-                }}
-                onReady={handlePlayerReady}
-                onStateChange={handlePlayerStateChange}
-                className="w-full h-full"
-              />
+              <div style={{ height: playerHeight }}>
+                <YoutubeIframe
+                  height={playerHeight}
+                  width={containerWidth}
+                  play={isPlaying}
+                  videoId={song.youtubeId}
+                  onChangeState={onStateChange}
+                  onReady={() => console.log("YouTube player ready")}
+                  onPlaybackQualityChange={() => {}}
+                  onError={() => console.log("YouTube player error")}
+                  onPlaybackRateChange={() => {}}
+                  forceAndroidAutoplay={true}
+                  webViewProps={{}}
+                  onFullScreenChange={() => {}}
+                  initialPlayerParams={{
+                    preventFullScreen: false,
+                    modestbranding: true,
+                    showClosedCaptions: false,
+                    rel: false,
+                    controls: false
+                  }}
+                  onProgress={updateProgress}
+                />
+              </div>
             ) : (
-              <div className="flex items-center justify-center text-blue-200 w-full h-full">
+              <div className="flex items-center justify-center text-blue-200 w-full h-16 bg-syncme-dark/80">
                 <Music className="mr-2" size={20} />
                 <span>Playing audio only</span>
               </div>
             )
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-blue-200/50 bg-syncme-dark/80">
+            <div className="w-full h-full flex items-center justify-center text-blue-200/50 bg-syncme-dark/80 min-h-[120px]">
               <p>No YouTube video available</p>
             </div>
           )}
@@ -206,8 +179,8 @@ const Player: React.FC<PlayerProps> = ({
           </div>
           
           <div className="flex justify-between text-sm text-blue-200/70 mb-6">
-            <span>{formatTime(progress)}</span>
-            <span>{formatTime(100)}</span>
+            <span>{formatTime(currentTime)}</span>
+            <span>{formatTime(duration)}</span>
           </div>
           
           <div className="flex items-center justify-center space-x-8">
