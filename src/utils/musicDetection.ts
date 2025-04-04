@@ -41,21 +41,86 @@ export const convertAuddResultToSong = (result: AuddResponse['result']) => {
   };
 };
 
+// Expanded exact match database for popular songs
+const EXACT_SONG_MATCHES: Record<string, Record<string, string>> = {
+  'bruno mars': {
+    'the lazy song': 'fLexgOxsZu0',
+    'uptown funk': 'OPf0YbXqDm0',
+    'thats what i like': 'PMivT7MJ41M',
+    '24k magic': 'UqyT8IEBkvY',
+    'locked out of heaven': 'e-fA-gBCkj0',
+    'when i was your man': 'ekzHIouo8Q4',
+    'just the way you are': 'LjhCEhWiKXk'
+  },
+  'billie eilish': {
+    'bad guy': 'DyDfgMOUjCI',
+    'happier than ever': '5GJWxDKyk3A',
+    'ocean eyes': 'viimfQi_pUw',
+    'everything i wanted': 'qCTMq7xvdXU',
+    'lovely': 'V1Pl8CzNzCw'
+  },
+  'taylor swift': {
+    'blank space': 'e-ORhEE9VVg',
+    'anti-hero': 'b1kbLwvqugk',
+    'cruel summer': 'ic8j13piAhQ',
+    'shake it off': 'nfWlot6h_JM',
+    'love story': 'Y7SvoHVmX74',
+    'style': '-CmadmM5cOk'
+  },
+  'the weeknd': {
+    'blinding lights': 'XXYlFuWEuKI',
+    'save your tears': 'LIIDh-qI9oI',
+    'starboy': 'dqRZDebPIGs',
+    'call out my name': 'm4ZCoTRUSn8',
+    'die for you': 'YxTM97Vp4c8',
+    'after hours': 'ygTZZpVkmKg'
+  },
+  'ed sheeran': {
+    'shape of you': 'JGwWNGJdvx8',
+    'perfect': '2Vv-BfVoq4g',
+    'thinking out loud': 'lp-EO5I60KA',
+    'photograph': 'nSDgHBxUbVQ',
+    'bad habits': 'orJSJGHjBLI'
+  },
+  'adele': {
+    'hello': 'YQHsXMglC9A',
+    'rolling in the deep': 'rYEDA3JcQqw',
+    'someone like you': 'hLQl3WQQoQ0',
+    'set fire to the rain': 'Ri7-vnrJD3k',
+    'easy on me': 'U3ASj1L6_sY'
+  },
+  'harry styles': {
+    'as it was': 'H5v3kku4y6Q',
+    'watermelon sugar': 'E07s5ZYygMg',
+    'late night talking': 'jjf-0O4N3I0',
+    'adore you': 'VF-r5TtlT9w',
+    'sign of the times': 'qN4ooNx77u0'
+  },
+  'dua lipa': {
+    'levitating': 'TUVcZfQe-Kw',
+    'dont start now': 'oygrmJFKYZY',
+    'new rules': 'k2qgadSvNyU',
+    'physical': '9HDEHj2yzew',
+    'one kiss': 'DkeiKbqa02g'
+  }
+};
+
 // Search for a YouTube video ID based on a query
 export const searchYouTubeVideo = async (query: string, artist: string, title: string): Promise<string | null> => {
   try {
     console.log('Searching YouTube for:', query);
     
-    // First, try to find an exact match in our hardcoded list, as this is most reliable
-    const exactMatchId = getYoutubeIdForExactSong(artist, title);
+    // Step 1: Try to find an exact match in our expanded database (most reliable)
+    const exactMatchId = getExactSongMatch(artist, title);
     if (exactMatchId) {
-      console.log(`Found exact match in hardcoded list for "${artist} - ${title}": ${exactMatchId}`);
+      console.log(`Found exact match in database for "${artist} - ${title}": ${exactMatchId}`);
       return exactMatchId;
     }
     
-    // Try with YouTube API proxy first
+    // Step 2: Try the YouTube Search API proxy
     try {
-      const proxyResponse = await fetch(`https://yt-api-proxy.glitch.me/search?q=${encodeURIComponent(query)}`);
+      const searchQuery = encodeURIComponent(`${artist} - ${title} official audio`);
+      const proxyResponse = await fetch(`https://yt-api-proxy.glitch.me/search?q=${searchQuery}`);
       
       if (proxyResponse.ok) {
         const data = await proxyResponse.json();
@@ -64,29 +129,41 @@ export const searchYouTubeVideo = async (query: string, artist: string, title: s
           console.log('YouTube search results:', data.items);
           
           // Find the first result that contains both the artist and title in the video title
-          // This helps ensure we get the right song
+          const normalizedArtist = artist.toLowerCase().trim();
+          const normalizedTitle = title.toLowerCase().trim();
+          
           const exactMatch = data.items.find((item: any) => {
             const videoTitle = item.snippet.title.toLowerCase();
-            return videoTitle.includes(artist.toLowerCase()) && 
-                   videoTitle.includes(title.toLowerCase());
+            
+            // Check if video title contains both artist and song name
+            const artistMatch = videoTitle.includes(normalizedArtist);
+            const titleMatch = videoTitle.includes(normalizedTitle);
+            
+            return artistMatch && titleMatch;
           });
           
           if (exactMatch) {
-            console.log('Found exact match:', exactMatch.snippet.title);
+            console.log('Found exact match in YouTube API:', exactMatch.snippet.title);
             return exactMatch.id.videoId;
           }
           
-          // If no exact match, return the first result
+          // If no exact match, return the first result but show a warning
+          console.log('No exact match found, using first result:', data.items[0].snippet.title);
+          toast({
+            title: "Song Match Warning",
+            description: `Playing closest match to "${artist} - ${title}"`,
+            variant: "default"
+          });
           return data.items[0].id.videoId;
         }
       }
     } catch (proxyError) {
-      console.log('Proxy API failed, using alternate method:', proxyError);
+      console.log('YouTube API proxy failed:', proxyError);
     }
     
-    // If the YouTube API fails, try using a more reliable secondary API
+    // Step 3: Try the secondary API as fallback
     try {
-      const secondaryApiUrl = `https://youtube-search-api.vercel.app/api/search?q=${encodeURIComponent(query)}`;
+      const secondaryApiUrl = `https://youtube-search-api.vercel.app/api/search?q=${encodeURIComponent(`${artist} ${title} official audio`)}`;
       const secondaryResponse = await fetch(secondaryApiUrl);
       
       if (secondaryResponse.ok) {
@@ -96,10 +173,13 @@ export const searchYouTubeVideo = async (query: string, artist: string, title: s
           console.log('Secondary API results:', secondaryData.videos);
           
           // Find exact match
+          const normalizedArtist = artist.toLowerCase().trim();
+          const normalizedTitle = title.toLowerCase().trim();
+          
           const exactMatch = secondaryData.videos.find((video: any) => {
             const videoTitle = video.title.toLowerCase();
-            return videoTitle.includes(artist.toLowerCase()) && 
-                   videoTitle.includes(title.toLowerCase());
+            return videoTitle.includes(normalizedArtist) && 
+                   videoTitle.includes(normalizedTitle);
           });
           
           if (exactMatch) {
@@ -107,7 +187,13 @@ export const searchYouTubeVideo = async (query: string, artist: string, title: s
             return extractVideoId(exactMatch.url);
           }
           
-          // If no exact match, return the first result
+          // If no exact match, return the first result but show a warning
+          console.log('No exact match in secondary API, using first result');
+          toast({
+            title: "Song Match Warning",
+            description: `Playing closest match to "${artist} - ${title}"`,
+            variant: "default"
+          });
           return extractVideoId(secondaryData.videos[0].url);
         }
       }
@@ -115,14 +201,67 @@ export const searchYouTubeVideo = async (query: string, artist: string, title: s
       console.log('Secondary API failed:', secondaryError);
     }
     
-    // If all else fails, use our expanded hardcoded list as a last resort
-    return getPopularYoutubeIdForArtist(artist) || getDefaultSong(artist, title);
+    // Step 4: Last resort - try to find a popular song by the same artist
+    const artistFallbackId = getPopularSongByArtist(artist);
+    if (artistFallbackId) {
+      console.log(`No exact match found, using popular song by ${artist}`);
+      toast({
+        title: "Song Not Found",
+        description: `Playing a different song by ${artist}`,
+        variant: "default"
+      });
+      return artistFallbackId;
+    }
+    
+    // Step 5: If all else fails, return null instead of a random song
+    toast({
+      title: "Song Not Found",
+      description: `Could not find "${title}" by ${artist}`,
+      variant: "destructive"
+    });
+    return null;
     
   } catch (error) {
     console.error('Error searching YouTube:', error);
-    // Fallback to our expanded hardcoded list if all APIs fail
-    return getPopularYoutubeIdForArtist(artist) || getDefaultSong(artist, title);
+    return null;
   }
+};
+
+// Get an exact song match from our database
+const getExactSongMatch = (artist: string, title: string): string | null => {
+  // Normalize strings for comparison
+  const normalizedArtist = artist.toLowerCase().trim();
+  const normalizedTitle = title.toLowerCase().trim();
+  
+  // Search for exact matches
+  for (const dbArtist in EXACT_SONG_MATCHES) {
+    if (normalizedArtist.includes(dbArtist) || dbArtist.includes(normalizedArtist)) {
+      for (const dbTitle in EXACT_SONG_MATCHES[dbArtist]) {
+        if (normalizedTitle.includes(dbTitle) || dbTitle.includes(normalizedTitle)) {
+          return EXACT_SONG_MATCHES[dbArtist][dbTitle];
+        }
+      }
+    }
+  }
+  
+  return null;
+};
+
+// Get a popular song by the same artist as fallback
+const getPopularSongByArtist = (artist: string): string | null => {
+  const normalizedArtist = artist.toLowerCase().trim();
+  
+  for (const dbArtist in EXACT_SONG_MATCHES) {
+    if (normalizedArtist.includes(dbArtist) || dbArtist.includes(normalizedArtist)) {
+      // Get the first song for this artist
+      const titles = Object.keys(EXACT_SONG_MATCHES[dbArtist]);
+      if (titles.length > 0) {
+        return EXACT_SONG_MATCHES[dbArtist][titles[0]];
+      }
+    }
+  }
+  
+  return null;
 };
 
 // Helper function to extract video ID from YouTube URL
@@ -133,124 +272,6 @@ const extractVideoId = (url: string): string | null => {
   const match = url.match(regExp);
   
   return (match && match[2].length === 11) ? match[2] : null;
-};
-
-// Expanded list of songs that we know for sure
-const getYoutubeIdForExactSong = (artist: string, title: string): string | null => {
-  console.log('Checking exact song match for:', artist, title);
-  
-  // Normalize artist and title for case-insensitive comparison
-  const normalizedArtist = artist.toLowerCase().trim();
-  const normalizedTitle = title.toLowerCase().trim();
-  
-  // Add exact matches for specific popular songs
-  const exactMatches: Record<string, Record<string, string>> = {
-    'bruno mars': {
-      'the lazy song': 'fLexgOxsZu0',
-      'uptown funk': 'OPf0YbXqDm0',
-      'thats what i like': 'PMivT7MJ41M',
-      '24k magic': 'UqyT8IEBkvY'
-    },
-    'billie eilish': {
-      'bad guy': 'DyDfgMOUjCI',
-      'happier than ever': '5GJWxDKyk3A',
-      'ocean eyes': 'viimfQi_pUw'
-    },
-    'taylor swift': {
-      'blank space': 'e-ORhEE9VVg',
-      'anti-hero': 'b1kbLwvqugk',
-      'cruel summer': 'ic8j13piAhQ'
-    },
-    'the weeknd': {
-      'blinding lights': 'XXYlFuWEuKI',
-      'save your tears': 'LIIDh-qI9oI',
-      'starboy': 'dqRZDebPIGs'
-    },
-    'ed sheeran': {
-      'shape of you': 'JGwWNGJdvx8',
-      'perfect': '2Vv-BfVoq4g',
-      'thinking out loud': 'lp-EO5I60KA'
-    },
-    'adele': {
-      'hello': 'YQHsXMglC9A',
-      'rolling in the deep': 'rYEDA3JcQqw',
-      'someone like you': 'hLQl3WQQoQ0'
-    },
-    'harry styles': {
-      'as it was': 'H5v3kku4y6Q',
-      'watermelon sugar': 'E07s5ZYygMg',
-      'late night talking': 'jjf-0O4N3I0'
-    },
-    'dua lipa': {
-      'levitating': 'TUVcZfQe-Kw',
-      'dont start now': 'oygrmJFKYZY',
-      'new rules': 'k2qgadSvNyU'
-    }
-  };
-  
-  // Try to find an exact match with normalized strings
-  for (const artistKey in exactMatches) {
-    if (normalizedArtist.includes(artistKey) || artistKey.includes(normalizedArtist)) {
-      for (const songKey in exactMatches[artistKey]) {
-        if (normalizedTitle.includes(songKey) || songKey.includes(normalizedTitle)) {
-          console.log(`Found exact match: ${artistKey} - ${songKey}`);
-          return exactMatches[artistKey][songKey];
-        }
-      }
-    }
-  }
-  
-  return null;
-};
-
-// Get a popular song by the same artist
-const getPopularYoutubeIdForArtist = (artist: string): string | null => {
-  console.log('Finding popular song for artist:', artist);
-  
-  const normalizedArtist = artist.toLowerCase().trim();
-  
-  // Map of artists to their popular song IDs
-  const artistHits: Record<string, string> = {
-    'bruno mars': 'fLexgOxsZu0', // The Lazy Song
-    'billie eilish': 'DyDfgMOUjCI', // Bad Guy
-    'taylor swift': 'e-ORhEE9VVg', // Blank Space
-    'the weeknd': 'XXYlFuWEuKI', // Blinding Lights
-    'ed sheeran': 'JGwWNGJdvx8', // Shape of You
-    'adele': 'YQHsXMglC9A', // Hello
-    'harry styles': 'H5v3kku4y6Q', // As It Was
-    'dua lipa': 'TUVcZfQe-Kw', // Levitating
-    'post malone': 'SC4xMk98Pdc', // Circles
-    'justin bieber': '1HaA7EzGZlk', // Sorry
-    'ariana grande': 'QYh6mYIJG2Y', // 7 Rings
-    'beyoncé': 'k4YRWT_Aldo', // Single Ladies
-    'lady gaga': 'bo_efYhYU2A', // Bad Romance
-    'rihanna': 'HL1UzIK-flA', // Diamonds
-    'drake': 'uxpDa-c-4Mc', // One Dance
-    'bts': 'MBdVXkSdhwU', // Dynamite
-    'coldplay': 'dvgZkm1xWPE', // Viva La Vida
-    'katy perry': 'QGJuMBdaqIw', // Firework
-    'maroon 5': 'aJOTlE1K90k', // Girls Like You
-    'imagine dragons': '7wtfhZwyrcc' // Believer
-  };
-  
-  // Check for partial matches in artist names
-  for (const artistKey in artistHits) {
-    if (normalizedArtist.includes(artistKey) || artistKey.includes(normalizedArtist)) {
-      console.log(`Found popular song for ${artistKey}: ${artistHits[artistKey]}`);
-      return artistHits[artistKey];
-    }
-  }
-  
-  return null;
-};
-
-// Default songs as a last resort
-const getDefaultSong = (artist: string, title: string): string => {
-  console.log('Using default song as last resort');
-  
-  // Only use Rick Astley as the absolute last resort
-  // This way we at least play something musical rather than returning an error
-  return 'dQw4w9WgXcQ'; // Rick Astley - Never Gonna Give You Up
 };
 
 // Record audio from the microphone
@@ -324,7 +345,7 @@ export const recognizeMusic = async (audioBlob: Blob): Promise<any> => {
     if (data.status === 'success' && data.result) {
       const song = convertAuddResultToSong(data.result);
       if (song) {
-        // Search for the song on YouTube with the exact artist and title
+        // Improved search to ensure the exact YouTube video is found
         const youtubeId = await searchYouTubeVideo(
           song.youtubeSearchQuery, 
           data.result.artist, 
@@ -334,9 +355,14 @@ export const recognizeMusic = async (audioBlob: Blob): Promise<any> => {
         if (youtubeId) {
           song.youtubeId = youtubeId;
           
-          // Log the exact match that was found
+          // Log the song data
           console.log(`Found YouTube match for "${data.result.artist} - ${data.result.title}":`, song.youtubeId);
           console.log('Final song data:', song);
+          toast({
+            title: "Song Found",
+            description: `"${data.result.title}" by ${data.result.artist}`,
+            variant: "default"
+          });
         } else {
           throw new Error('Could not find a matching YouTube video for this song.');
         }
