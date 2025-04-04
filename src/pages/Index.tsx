@@ -10,6 +10,7 @@ import { sampleSongs, generateRoomCode } from '@/utils/mockData';
 import { Music } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from '@/hooks/use-toast';
+import { verifyYouTubeMatch, searchYouTubeVideo } from '@/utils/musicDetection';
 
 enum AppState {
   HOME,
@@ -41,7 +42,52 @@ const Index = () => {
   };
   
   // Called when a song is successfully recognized
-  const handleSongRecognized = (song: any) => {
+  const handleSongRecognized = async (song: any) => {
+    console.log("Song recognized:", song);
+    
+    // If the song doesn't have a YouTubeId or it's not verified, try to find and verify one
+    if (!song.youtubeId) {
+      try {
+        const searchQuery = `${song.artist} - ${song.title} official`;
+        const youtubeId = await searchYouTubeVideo(searchQuery, song.artist, song.title);
+        
+        if (youtubeId) {
+          song = { ...song, youtubeId };
+        }
+      } catch (error) {
+        console.error("Error finding YouTube video:", error);
+      }
+    }
+    
+    // If the song has a YouTube ID but it's not verified, try to verify it
+    if (song.youtubeId && song.isVerified === false) {
+      try {
+        const isVerified = await verifyYouTubeMatch(song.youtubeId, song.artist, song.title);
+        
+        // If it's not verified, try to find a better match
+        if (!isVerified) {
+          const specificQuery = `${song.artist} - ${song.title} official music video`;
+          const betterMatch = await searchYouTubeVideo(specificQuery, song.artist, song.title);
+          
+          if (betterMatch && betterMatch !== song.youtubeId) {
+            // Verify this new match
+            const newIsVerified = await verifyYouTubeMatch(betterMatch, song.artist, song.title);
+            
+            if (newIsVerified) {
+              song = { ...song, youtubeId: betterMatch, isVerified: true };
+              console.log(`Updated YouTube ID to verified match: ${betterMatch}`);
+            }
+          }
+        } else {
+          // If it is verified, update the song object
+          song = { ...song, isVerified: true };
+        }
+      } catch (error) {
+        console.error("Error verifying YouTube match:", error);
+      }
+    }
+    
+    // Update the recognized song in the state
     setRecognizedSong(song);
     setIsDetecting(false);
     setAppState(AppState.RESULT);

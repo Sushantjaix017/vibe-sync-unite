@@ -56,19 +56,24 @@ const SongResult: React.FC<SongResultProps> = ({ song, onPlay, onVibeTogether })
             </a>
           </div>
           
-          {song.isVerified !== undefined && (
+          {song.isVerified === undefined ? (
             <div className="mb-4 flex items-center justify-center py-2 px-3 rounded-lg bg-white/5">
-              {song.isVerified ? (
-                <div className="flex items-center text-green-400">
-                  <CheckCircle size={16} className="mr-2" />
-                  <span className="text-sm">YouTube match verified</span>
-                </div>
-              ) : (
-                <div className="flex items-center text-yellow-400">
-                  <AlertCircle size={16} className="mr-2" />
-                  <span className="text-sm">Best match found</span>
-                </div>
-              )}
+              <div className="animate-spin inline-block w-4 h-4 border-2 border-syncme-light-purple border-t-transparent rounded-full mr-2"></div>
+              <span className="text-sm text-blue-200">Verifying video match...</span>
+            </div>
+          ) : song.isVerified ? (
+            <div className="mb-4 flex items-center justify-center py-2 px-3 rounded-lg bg-white/5">
+              <div className="flex items-center text-green-400">
+                <CheckCircle size={16} className="mr-2" />
+                <span className="text-sm">YouTube match verified</span>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-4 flex items-center justify-center py-2 px-3 rounded-lg bg-white/5">
+              <div className="flex items-center text-yellow-400">
+                <AlertCircle size={16} className="mr-2" />
+                <span className="text-sm">Best match found</span>
+              </div>
             </div>
           )}
           
