@@ -1,4 +1,3 @@
-
 import { toast } from "@/hooks/use-toast";
 
 interface AuddResponse {
@@ -38,6 +37,7 @@ export const convertAuddResultToSong = (result: AuddResponse['result']) => {
     year: result.release_date?.split('-')[0] || 'Unknown',
     youtubeId: null, // We'll set this after the YouTube search
     youtubeSearchQuery, // Add the search query to use later
+    isVerified: false, // Track if we've verified this is the correct YouTube video
   };
 };
 
@@ -128,6 +128,48 @@ const extractVideoId = (url: string): string | null => {
   return (match && match[2].length === 11) ? match[2] : null;
 };
 
+// Verify if a YouTube video matches the expected song
+export const verifyYouTubeMatch = async (youtubeId: string, artist: string, title: string): Promise<boolean> => {
+  try {
+    // Try to fetch video details using YouTube API to verify it's the right song
+    const response = await fetch(`https://yt-api-proxy.glitch.me/videos?id=${youtubeId}&part=snippet`);
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data && data.items && data.items.length > 0) {
+        const videoTitle = data.items[0].snippet.title.toLowerCase();
+        const expectedArtist = artist.toLowerCase();
+        const expectedTitle = title.toLowerCase();
+        
+        // Check if both artist and title appear in the video title
+        const artistMatch = videoTitle.includes(expectedArtist);
+        const titleMatch = videoTitle.includes(expectedTitle);
+        
+        console.log(`Verification: Video title "${videoTitle}" matches artist: ${artistMatch}, title: ${titleMatch}`);
+        
+        // If both match, we're good
+        if (artistMatch && titleMatch) {
+          return true;
+        }
+        
+        // If at least the title matches, it's probably OK
+        if (titleMatch) {
+          return true;
+        }
+        
+        // Otherwise, it's likely not the right video
+        return false;
+      }
+    }
+    
+    // If we can't verify, assume it's not a match
+    return false;
+  } catch (error) {
+    console.error('Error verifying YouTube match:', error);
+    return false;
+  }
+};
+
 // Improved fallback function to get a YouTube ID when APIs fail
 const getYoutubeIdForExactSong = (artist: string, title: string): string => {
   console.log('Using fallback YouTube search for:', artist, title);
@@ -168,6 +210,21 @@ const getYoutubeIdForExactSong = (artist: string, title: string): string => {
       'Levitating': 'TUVcZfQe-Kw',
       'Don\'t Start Now': 'oygrmJFKYZY',
       'New Rules': 'k2qgadSvNyU'
+    },
+    'Bruno Mars': {
+      'The Lazy Song': 'fLexgOxsZu0',
+      'Just The Way You Are': 'LjhCEhWiKXk',
+      'Uptown Funk': 'OPf0YbXqDm0'
+    },
+    'Coldplay': {
+      'Yellow': 'yKNxeF4KMsY',
+      'Viva La Vida': 'dvgZkm1xWPE',
+      'A Sky Full of Stars': 'VPRjCeoBqrI'
+    },
+    'Justin Bieber': {
+      'Sorry': 'fRh_vgS2dFE',
+      'What Do You Mean?': 'DK_0jXPuIr0',
+      'Love Yourself': 'oyEuk8j8imI'
     }
   };
   
@@ -272,6 +329,27 @@ export const recognizeMusic = async (audioBlob: Blob): Promise<any> => {
         );
         
         song.youtubeId = youtubeId || 'dQw4w9WgXcQ'; // Fallback if all else fails
+        
+        // Verify if the YouTube video matches the expected song
+        if (youtubeId) {
+          const isVerified = await verifyYouTubeMatch(youtubeId, data.result.artist, data.result.title);
+          song.isVerified = isVerified;
+          
+          if (!isVerified) {
+            console.warn(`Warning: YouTube video (${youtubeId}) may not match "${data.result.artist} - ${data.result.title}"`);
+            // Try one more search with a more specific query
+            const specificQuery = `${data.result.artist} - ${data.result.title} official music video`;
+            const betterMatch = await searchYouTubeVideo(specificQuery, data.result.artist, data.result.title);
+            if (betterMatch && betterMatch !== youtubeId) {
+              const betterIsVerified = await verifyYouTubeMatch(betterMatch, data.result.artist, data.result.title);
+              if (betterIsVerified) {
+                song.youtubeId = betterMatch;
+                song.isVerified = true;
+                console.log(`Found better match: ${betterMatch}`);
+              }
+            }
+          }
+        }
         
         // Log the exact match that was found
         console.log(`Found YouTube match for "${data.result.artist} - ${data.result.title}":`, song.youtubeId);

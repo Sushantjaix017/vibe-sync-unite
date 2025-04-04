@@ -4,6 +4,7 @@ import { Play, Pause, SkipForward, SkipBack, Music, Video } from 'lucide-react';
 import Header from './Header';
 import YouTube from 'react-youtube';
 import { toast } from "@/hooks/use-toast";
+import { searchYouTubeVideo, verifyYouTubeMatch } from '@/utils/musicDetection';
 
 interface PlayerProps {
   song: {
@@ -11,6 +12,7 @@ interface PlayerProps {
     artist: string;
     albumArt: string;
     youtubeId?: string;
+    isVerified?: boolean;
   };
   isHost: boolean;
   roomCode?: string;
@@ -35,6 +37,8 @@ const Player: React.FC<PlayerProps> = ({
   const [containerWidth, setContainerWidth] = useState(window.innerWidth);
   const [playerError, setPlayerError] = useState(false);
   const [songTitle, setSongTitle] = useState('');
+  const [currentYoutubeId, setCurrentYoutubeId] = useState<string | undefined>(song.youtubeId);
+  const [isVerifyingVideo, setIsVerifyingVideo] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -45,25 +49,86 @@ const Player: React.FC<PlayerProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // When the song changes, validate it's playing the right song
+  // When the song changes, verify and update the YouTube ID if needed
   useEffect(() => {
-    if (song) {
-      console.log(`Song to play: ${song.artist} - ${song.title} (ID: ${song.youtubeId})`);
-      
-      // Reset player state for new song
-      setPlayerError(false);
-      setProgress(0);
-      setCurrentTime(0);
-      setDuration(0);
-      setSongTitle('');
-      
-      // If the player is already ready, play the song
-      if (playerRef.current && playerRef.current.internalPlayer) {
-        setIsPlaying(true);
-        playerRef.current.internalPlayer.playVideo();
+    const verifySongMatch = async () => {
+      if (song && song.youtubeId) {
+        console.log(`Verifying song: ${song.artist} - ${song.title} (ID: ${song.youtubeId})`);
+        setIsVerifyingVideo(true);
+        
+        // If song is already verified, just use it
+        if (song.isVerified) {
+          console.log("Song is pre-verified, using provided YouTube ID");
+          setCurrentYoutubeId(song.youtubeId);
+          setIsVerifyingVideo(false);
+          return;
+        }
+        
+        try {
+          // Verify that the YouTube ID matches the song
+          const isMatch = await verifyYouTubeMatch(song.youtubeId, song.artist, song.title);
+          
+          if (isMatch) {
+            console.log("YouTube ID matches song, using it");
+            setCurrentYoutubeId(song.youtubeId);
+          } else {
+            console.log("YouTube ID does not match song, searching for better match");
+            // If it doesn't match, search for a better match
+            const specificQuery = `${song.artist} - ${song.title} official`;
+            const betterMatch = await searchYouTubeVideo(specificQuery, song.artist, song.title);
+            
+            if (betterMatch) {
+              console.log(`Found better match: ${betterMatch}`);
+              setCurrentYoutubeId(betterMatch);
+              toast({
+                title: "Better Match Found",
+                description: `Playing improved match for "${song.title}"`,
+              });
+            } else {
+              console.log("No better match found, using original ID");
+              setCurrentYoutubeId(song.youtubeId);
+            }
+          }
+        } catch (error) {
+          console.error("Error verifying song match:", error);
+          // If verification fails, just use the original ID
+          setCurrentYoutubeId(song.youtubeId);
+        }
+        
+        setIsVerifyingVideo(false);
+      }
+    };
+    
+    // Run the verification
+    verifySongMatch();
+    
+    // Reset player state for new song
+    setPlayerError(false);
+    setProgress(0);
+    setCurrentTime(0);
+    setDuration(0);
+    setSongTitle('');
+    
+  }, [song]);
+
+  // When YouTube ID is updated, play the video
+  useEffect(() => {
+    if (currentYoutubeId && playerRef.current && playerRef.current.internalPlayer) {
+      try {
+        // Load the new video
+        playerRef.current.internalPlayer.loadVideoById(currentYoutubeId);
+        
+        // Set playing state
+        if (isPlaying) {
+          playerRef.current.internalPlayer.playVideo();
+        } else {
+          playerRef.current.internalPlayer.pauseVideo();
+        }
+      } catch (error) {
+        console.error("Error updating YouTube video:", error);
       }
     }
-  }, [song]);
+  }, [currentYoutubeId]);
 
   const togglePlayPause = () => {
     if (playerRef.current && playerRef.current.internalPlayer) {
@@ -91,30 +156,38 @@ const Player: React.FC<PlayerProps> = ({
     if (playerState === 1) {
       setIsPlaying(true);
       
-      // When playback starts, try to get the video title to confirm it's the right song
+      // When playback starts, verify it's the right song by checking the video title
       if (!songTitle && playerRef.current && playerRef.current.internalPlayer) {
         try {
+          // Get the video data to check if it's the right song
           playerRef.current.internalPlayer.getVideoData().then((data: any) => {
             if (data && data.title) {
               setSongTitle(data.title);
               console.log("Now playing:", data.title);
               
-              // Very basic validation - check if both artist name and song title appear in the video title
+              // Check if both artist name and song title appear in the video title
               const videoTitle = data.title.toLowerCase();
               const expectedArtist = song.artist.toLowerCase();
               const expectedTitle = song.title.toLowerCase();
               
-              if (!videoTitle.includes(expectedArtist) && !videoTitle.includes(expectedTitle)) {
+              const artistMatches = videoTitle.includes(expectedArtist);
+              const titleMatches = videoTitle.includes(expectedTitle);
+              
+              // If neither matches, we probably have the wrong video
+              if (!artistMatches && !titleMatches) {
                 console.warn("Video title doesn't match expected song:", data.title);
                 toast({
                   title: "Song Mismatch Warning",
                   description: `Playing closest match to "${song.artist} - ${song.title}"`,
                   variant: "default"
                 });
+                
+                // Since we're already playing, don't interrupt, but log the issue
+                console.log("Mismatch between detected song and video being played");
               }
             }
-          }).catch(() => {
-            // Ignore errors here, it's just additional validation
+          }).catch((error) => {
+            console.error("Error getting video data:", error);
           });
         } catch (e) {
           // If this fails, it's not critical
@@ -165,11 +238,49 @@ const Player: React.FC<PlayerProps> = ({
   const onPlayerError = (event: any) => {
     console.error("YouTube player error:", event);
     setPlayerError(true);
-    toast({
-      title: "Playback Error",
-      description: "Could not play this video. Try a different song.",
-      variant: "destructive"
-    });
+    
+    // Try to find another video for this song
+    const searchForAlternative = async () => {
+      toast({
+        title: "Playback Error",
+        description: "Looking for an alternative source...",
+        variant: "default"
+      });
+      
+      try {
+        const alternativeId = await searchYouTubeVideo(
+          `${song.artist} - ${song.title} music video`, 
+          song.artist, 
+          song.title
+        );
+        
+        if (alternativeId && alternativeId !== currentYoutubeId) {
+          console.log(`Found alternative video: ${alternativeId}`);
+          setCurrentYoutubeId(alternativeId);
+          
+          toast({
+            title: "Alternative Found",
+            description: "Playing from alternative source",
+            variant: "default"
+          });
+        } else {
+          toast({
+            title: "Playback Error",
+            description: "Could not play this song. Try a different song.",
+            variant: "destructive"
+          });
+        }
+      } catch (error) {
+        console.error("Error finding alternative:", error);
+        toast({
+          title: "Playback Error",
+          description: "Could not play this video. Try a different song.",
+          variant: "destructive"
+        });
+      }
+    };
+    
+    searchForAlternative();
   };
 
   const formatTime = (seconds: number) => {
@@ -200,6 +311,7 @@ const Player: React.FC<PlayerProps> = ({
     <div className="flex flex-col h-full space-bg cosmic-dots animate-fade-in">
       <Header title={roomCode ? `Room: ${roomCode}` : "Now Playing 🎵"} showBackButton={true} onBackClick={onBack} />
       
+      {/* Room and chat UI */}
       {roomCode && (
         <div className="flex items-center justify-between px-4 py-2 bg-syncme-light-purple/10 backdrop-blur-md border-b border-syncme-light-purple/10">
           <div className="flex items-center">
@@ -227,14 +339,22 @@ const Player: React.FC<PlayerProps> = ({
         <div className="absolute bottom-[20%] left-[20%] text-xl opacity-10 float-fast">🎧</div>
         
         <div className="w-full mb-6 overflow-hidden rounded-lg shadow-[0_0_30px_rgba(155,135,245,0.2)] border border-syncme-light-purple/10">
-          {song.youtubeId ? (
+          {isVerifyingVideo ? (
+            <div className="flex items-center justify-center w-full h-48 bg-syncme-dark/80">
+              <div className="text-center">
+                <div className="animate-spin inline-block w-8 h-8 border-4 border-syncme-light-purple border-t-transparent rounded-full mb-2"></div>
+                <p className="text-blue-200">Verifying best match...</p>
+              </div>
+            </div>
+          ) : currentYoutubeId ? (
             videoMode ? (
               <div className="w-full" style={{ height: playerHeight }}>
                 <YouTube
-                  videoId={song.youtubeId}
+                  videoId={currentYoutubeId}
                   opts={playerOptions}
                   onReady={onPlayerReady}
                   onStateChange={onStateChange}
+                  onError={onPlayerError}
                   className="w-full h-full"
                 />
               </div>
@@ -278,6 +398,11 @@ const Player: React.FC<PlayerProps> = ({
             <p className="text-blue-200/80 flex items-center">
               <span className="mr-2">👨‍🎤</span> {song.artist}
             </p>
+            {songTitle && songTitle !== `${song.artist} - ${song.title}` && (
+              <p className="text-xs text-blue-200/50 mt-1">
+                Playing: {songTitle}
+              </p>
+            )}
           </div>
           
           <div className="w-full h-2 bg-syncme-light-purple/10 rounded-full mb-2 overflow-hidden">
@@ -315,6 +440,7 @@ const Player: React.FC<PlayerProps> = ({
         </div>
       </div>
       
+      {/* Chat UI */}
       {showChat && (
         <div className="fixed inset-0 z-50 space-bg cosmic-dots animate-slide-up flex flex-col">
           <Header title="Room Chat 💬" showBackButton={false} />

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Play, Users, ExternalLink } from 'lucide-react';
+import { Play, Users, ExternalLink, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface Song {
   title: string;
@@ -8,6 +8,7 @@ interface Song {
   album: string;
   albumArt: string;
   year: string;
+  isVerified?: boolean;
 }
 
 interface SongResultProps {
@@ -54,6 +55,22 @@ const SongResult: React.FC<SongResultProps> = ({ song, onPlay, onVibeTogether })
               <ExternalLink size={16} />
             </a>
           </div>
+          
+          {song.isVerified !== undefined && (
+            <div className="mb-4 flex items-center justify-center py-2 px-3 rounded-lg bg-white/5">
+              {song.isVerified ? (
+                <div className="flex items-center text-green-400">
+                  <CheckCircle size={16} className="mr-2" />
+                  <span className="text-sm">YouTube match verified</span>
+                </div>
+              ) : (
+                <div className="flex items-center text-yellow-400">
+                  <AlertCircle size={16} className="mr-2" />
+                  <span className="text-sm">Best match found</span>
+                </div>
+              )}
+            </div>
+          )}
           
           <div className="flex flex-col space-y-3">
             <button 

@@ -16,7 +16,7 @@ const RecognitionScreen: React.FC<RecognitionScreenProps> = ({
   onCancel,
   onSongRecognized
 }) => {
-  const [status, setStatus] = useState<'ready' | 'recording' | 'processing'>('ready');
+  const [status, setStatus] = useState<'ready' | 'recording' | 'processing' | 'verifying'>('ready');
   
   useEffect(() => {
     if (isListening) {
@@ -41,8 +41,17 @@ const RecognitionScreen: React.FC<RecognitionScreenProps> = ({
       // Send audio to audd.io for recognition
       const song = await recognizeMusic(audioBlob);
       
-      // Send the recognized song to the parent component
       if (song) {
+        // If we have a verified YouTube ID, show that we're double-checking
+        if (!song.isVerified) {
+          setStatus('verifying');
+          toast({
+            title: "Song Found",
+            description: "Verifying YouTube match...",
+          });
+        }
+        
+        // Send the recognized song to the parent component
         onSongRecognized(song);
       } else {
         toast({
@@ -61,6 +70,32 @@ const RecognitionScreen: React.FC<RecognitionScreenProps> = ({
         variant: "destructive"
       });
       onCancel();
+    }
+  };
+  
+  const getStatusMessage = () => {
+    switch (status) {
+      case 'recording':
+        return 'Listening to Music';
+      case 'processing':
+        return 'Processing Audio...';
+      case 'verifying':
+        return 'Finding Best Match...';
+      default:
+        return 'Ready';
+    }
+  };
+  
+  const getStatusDescription = () => {
+    switch (status) {
+      case 'recording':
+        return 'Hold your phone close to the music source for better recognition 🔊';
+      case 'processing':
+        return 'Identifying the song using audd.io API 🔍';
+      case 'verifying':
+        return 'Finding the best YouTube match for this song 🎬';
+      default:
+        return 'Tap to begin detection';
     }
   };
   
@@ -86,15 +121,13 @@ const RecognitionScreen: React.FC<RecognitionScreenProps> = ({
           </div>
         </div>
         
-        <WaveformAnimation isListening={isListening} />
+        <WaveformAnimation isListening={status === 'recording'} />
         
         <h2 className="text-2xl font-bold mb-2 text-glow">
-          {status === 'recording' ? 'Listening to Music' : 'Processing Audio...'}
+          {getStatusMessage()}
         </h2>
         <p className="text-center text-blue-200/70 mb-8 max-w-xs">
-          {status === 'recording' 
-            ? 'Hold your phone close to the music source for better recognition 🔊' 
-            : 'Identifying the song using audd.io API 🔍'}
+          {getStatusDescription()}
         </p>
         
         <button 
