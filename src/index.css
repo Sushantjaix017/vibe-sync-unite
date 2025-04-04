@@ -120,16 +120,6 @@
   100% { transform: translateY(0px); }
 }
 
-@keyframes pulse-verify {
-  0% { opacity: 0.7; }
-  50% { opacity: 1; }
-  100% { opacity: 0.7; }
-}
-
-.verify-pulse {
-  animation: pulse-verify 2s ease-in-out infinite;
-}
-
 .float {
   animation: float 6s ease-in-out infinite;
 }
@@ -142,23 +132,3 @@
   animation: float 4s ease-in-out infinite;
 }
 
-/* Responsive utility classes */
-@layer utilities {
-  .xs\:hidden {
-    @media (max-width: 479px) {
-      display: none;
-    }
-  }
-  
-  .xs\:inline {
-    @media (min-width: 480px) {
-      display: inline;
-    }
-  }
-  
-  .xs\:block {
-    @media (min-width: 480px) {
-      display: block;
-    }
-  }
-}
