@@ -50,7 +50,8 @@ const EXACT_SONG_MATCHES: Record<string, Record<string, string>> = {
     '24k magic': 'UqyT8IEBkvY',
     'locked out of heaven': 'e-fA-gBCkj0',
     'when i was your man': 'ekzHIouo8Q4',
-    'just the way you are': 'LjhCEhWiKXk'
+    'just the way you are': 'LjhCEhWiKXk',
+    'lazy song': 'fLexgOxsZu0' // Added alternate title
   },
   'billie eilish': {
     'bad guy': 'DyDfgMOUjCI',
@@ -102,6 +103,17 @@ const EXACT_SONG_MATCHES: Record<string, Record<string, string>> = {
     'new rules': 'k2qgadSvNyU',
     'physical': '9HDEHj2yzew',
     'one kiss': 'DkeiKbqa02g'
+  },
+  'versus': {
+    '7 years rap (remix)': 'Ckt9NCZ7C9A',
+    '7 years rap': 'Ckt9NCZ7C9A'
+  },
+  'jp saxe': {
+    'if the world was ending (spanish remix)': 'shQJqWH7fqU',
+    'if the world was ending': 'shQJqWH7fqU'
+  },
+  'sadie jean': {
+    'locksmith': 'ytuaYCxLtEQ'
   }
 };
 
@@ -116,8 +128,15 @@ export const searchYouTubeVideo = async (query: string, artist: string, title: s
       console.log(`Found exact match in database for "${artist} - ${title}": ${exactMatchId}`);
       return exactMatchId;
     }
+
+    // Step 2: Use a direct match for specific songs that are commonly detected
+    const directMatchId = getDirectSongMatch(artist, title);
+    if (directMatchId) {
+      console.log(`Found direct match for "${artist} - ${title}": ${directMatchId}`);
+      return directMatchId;
+    }
     
-    // Step 2: Try the YouTube Search API proxy
+    // Step 3: Try the YouTube Search API proxy
     try {
       const searchQuery = encodeURIComponent(`${artist} - ${title} official audio`);
       const proxyResponse = await fetch(`https://yt-api-proxy.glitch.me/search?q=${searchQuery}`);
@@ -161,7 +180,7 @@ export const searchYouTubeVideo = async (query: string, artist: string, title: s
       console.log('YouTube API proxy failed:', proxyError);
     }
     
-    // Step 3: Try the secondary API as fallback
+    // Step 4: Try the secondary API as fallback
     try {
       const secondaryApiUrl = `https://youtube-search-api.vercel.app/api/search?q=${encodeURIComponent(`${artist} ${title} official audio`)}`;
       const secondaryResponse = await fetch(secondaryApiUrl);
@@ -201,7 +220,7 @@ export const searchYouTubeVideo = async (query: string, artist: string, title: s
       console.log('Secondary API failed:', secondaryError);
     }
     
-    // Step 4: Last resort - try to find a popular song by the same artist
+    // Step 5: Last resort - try to find a popular song by the same artist
     const artistFallbackId = getPopularSongByArtist(artist);
     if (artistFallbackId) {
       console.log(`No exact match found, using popular song by ${artist}`);
@@ -213,7 +232,7 @@ export const searchYouTubeVideo = async (query: string, artist: string, title: s
       return artistFallbackId;
     }
     
-    // Step 5: If all else fails, return null instead of a random song
+    // Step 6: If all else fails, return null instead of a random song
     toast({
       title: "Song Not Found",
       description: `Could not find "${title}" by ${artist}`,
@@ -226,6 +245,28 @@ export const searchYouTubeVideo = async (query: string, artist: string, title: s
     return null;
   }
 };
+
+// Direct matches for specific songs based on artist and title
+function getDirectSongMatch(artist: string, title: string): string | null {
+  // Normalize inputs
+  const normalizedArtist = artist.toLowerCase().trim();
+  const normalizedTitle = title.toLowerCase().trim();
+
+  // Specific direct matches for commonly detected songs
+  if (normalizedArtist.includes('bruno mars') && normalizedTitle.includes('lazy')) {
+    return 'fLexgOxsZu0'; // Bruno Mars - The Lazy Song official video
+  }
+  
+  if (normalizedArtist.includes('versus') && normalizedTitle.includes('7 years')) {
+    return 'Ckt9NCZ7C9A'; // Versus - 7 Years Rap (Remix)
+  }
+  
+  if (normalizedArtist.includes('jp saxe') && normalizedTitle.includes('world was ending')) {
+    return 'shQJqWH7fqU'; // JP Saxe - If The World Was Ending ft. Julia Michaels
+  }
+
+  return null;
+}
 
 // Get an exact song match from our database
 const getExactSongMatch = (artist: string, title: string): string | null => {
@@ -368,9 +409,17 @@ export const recognizeMusic = async (audioBlob: Blob): Promise<any> => {
         }
       }
       return song;
-    } else {
+    } else if (data.status === 'success' && !data.result) {
       console.log('No song detected in the audio sample');
-      throw new Error('No song detected. Please try again with clearer audio.');
+      toast({
+        title: "No Song Detected",
+        description: "Try again with clearer audio",
+        variant: "destructive"
+      });
+      return null;
+    } else {
+      console.log('Error or unexpected response from audd.io');
+      throw new Error('Error retrieving song information. Please try again.');
     }
   } catch (error) {
     console.error('Error during music recognition:', error);

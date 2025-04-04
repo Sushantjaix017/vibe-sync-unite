@@ -23,9 +23,8 @@ const RecognitionScreen: React.FC<RecognitionScreenProps> = ({
       detectMusic();
     }
     
-    // Cleanup function
     return () => {
-      // Additional cleanup if needed
+      // Cleanup function if needed
     };
   }, [isListening]);
   
