@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Play, Users, ExternalLink, CheckCircle, AlertCircle } from 'lucide-react';
+import { Play, Users, ExternalLink, CheckCircle, AlertCircle, Music } from 'lucide-react';
 
 interface Song {
   title: string;
@@ -9,6 +9,7 @@ interface Song {
   albumArt: string;
   year: string;
   isVerified?: boolean;
+  youtubeId?: string;
 }
 
 interface SongResultProps {
@@ -18,6 +19,9 @@ interface SongResultProps {
 }
 
 const SongResult: React.FC<SongResultProps> = ({ song, onPlay, onVibeTogether }) => {
+  // Don't show YouTube warning if there's no ID (will be searched during play)
+  const showYoutubeWarning = song.youtubeId === 'dQw4w9WgXcQ';
+  
   return (
     <div className="w-full max-w-md animate-fade-in">
       <div className="bg-syncme-dark/70 rounded-xl overflow-hidden shadow-xl backdrop-blur-lg border border-syncme-light-purple/10 card-glow">
@@ -70,10 +74,17 @@ const SongResult: React.FC<SongResultProps> = ({ song, onPlay, onVibeTogether })
             </div>
           ) : (
             <div className="mb-4 flex items-center justify-center py-2 px-3 rounded-lg bg-white/5">
-              <div className="flex items-center text-yellow-400">
-                <AlertCircle size={16} className="mr-2" />
-                <span className="text-sm">Best match found</span>
-              </div>
+              {showYoutubeWarning ? (
+                <div className="flex items-center text-orange-400">
+                  <AlertCircle size={16} className="mr-2" />
+                  <span className="text-sm">YouTube match not found - will search on play</span>
+                </div>
+              ) : (
+                <div className="flex items-center text-yellow-400">
+                  <Music size={16} className="mr-2" />
+                  <span className="text-sm">Best match found - may not be exact</span>
+                </div>
+              )}
             </div>
           )}
           
