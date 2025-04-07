@@ -44,6 +44,40 @@ export const convertAuddResultToSong = (result: AuddResponse['result']) => {
 // Track recently used fallback IDs to avoid using the same one repeatedly
 const recentlyUsedFallbackIds = new Set<string>();
 
+// Normalize strings for better matching
+export const normalizeString = (str: string): string => {
+  if (!str) return '';
+  
+  return str.toLowerCase()
+    .replace(/[^\w\s]/g, '')  // Remove punctuation
+    .replace(/\s+/g, ' ')     // Normalize whitespace
+    .trim();
+};
+
+// More sophisticated string matching that handles variations better
+export const stringsMatch = (str1: string, str2: string): boolean => {
+  const norm1 = normalizeString(str1);
+  const norm2 = normalizeString(str2);
+  
+  // Direct match
+  if (norm1 === norm2) return true;
+  
+  // One contains the other
+  if (norm1.includes(norm2) || norm2.includes(norm1)) return true;
+  
+  // Check word by word (for artist names like "The Beatles" vs "Beatles")
+  const words1 = norm1.split(' ');
+  const words2 = norm2.split(' ');
+  
+  // If one string has at least 70% of words from the other
+  let matchCount = 0;
+  for (const word of words1) {
+    if (word.length > 2 && words2.includes(word)) matchCount++;
+  }
+  
+  return matchCount >= Math.min(words1.length, words2.length) * 0.7;
+};
+
 // Search for a YouTube video ID based on a query
 export const searchYouTubeVideo = async (query: string, artist: string, title: string): Promise<string | null> => {
   try {
@@ -60,11 +94,10 @@ export const searchYouTubeVideo = async (query: string, artist: string, title: s
           console.log('YouTube search results:', data.items);
           
           // Find the first result that contains both the artist and title in the video title
-          // This helps ensure we get the right song
+          // using our enhanced string matching
           const exactMatch = data.items.find((item: any) => {
-            const videoTitle = item.snippet.title.toLowerCase();
-            return videoTitle.includes(artist.toLowerCase()) && 
-                   videoTitle.includes(title.toLowerCase());
+            const videoTitle = item.snippet.title;
+            return stringsMatch(videoTitle, artist) && stringsMatch(videoTitle, title);
           });
           
           if (exactMatch) {
@@ -98,11 +131,9 @@ export const searchYouTubeVideo = async (query: string, artist: string, title: s
         if (secondaryData && secondaryData.videos && secondaryData.videos.length > 0) {
           console.log('Secondary API results:', secondaryData.videos);
           
-          // Find exact match
+          // Find exact match with enhanced string matching
           const exactMatch = secondaryData.videos.find((video: any) => {
-            const videoTitle = video.title.toLowerCase();
-            return videoTitle.includes(artist.toLowerCase()) && 
-                   videoTitle.includes(title.toLowerCase());
+            return stringsMatch(video.title, artist) && stringsMatch(video.title, title);
           });
           
           if (exactMatch) {
@@ -160,13 +191,11 @@ export const verifyYouTubeMatch = async (youtubeId: string, artist: string, titl
     if (response.ok) {
       const data = await response.json();
       if (data && data.items && data.items.length > 0) {
-        const videoTitle = data.items[0].snippet.title.toLowerCase();
-        const expectedArtist = artist.toLowerCase();
-        const expectedTitle = title.toLowerCase();
+        const videoTitle = data.items[0].snippet.title;
         
-        // Check if both artist and title appear in the video title
-        const artistMatch = videoTitle.includes(expectedArtist);
-        const titleMatch = videoTitle.includes(expectedTitle);
+        // Use enhanced string matching
+        const artistMatch = stringsMatch(videoTitle, artist);
+        const titleMatch = stringsMatch(videoTitle, title);
         
         console.log(`Verification: Video title "${videoTitle}" matches artist: ${artistMatch}, title: ${titleMatch}`);
         
@@ -288,13 +317,11 @@ const getYoutubeIdForExactSong = (artist: string, title: string): string => {
   // Try to find an exact match for artist and song in our database
   for (const knownArtist in popularSongs) {
     // Check for artist match (case insensitive, partial match)
-    if (artist.toLowerCase().includes(knownArtist.toLowerCase()) || 
-        knownArtist.toLowerCase().includes(artist.toLowerCase())) {
+    if (stringsMatch(artist, knownArtist)) {
           
       // Check if we have this song by the artist
       for (const knownSong in popularSongs[knownArtist]) {
-        if (title.toLowerCase().includes(knownSong.toLowerCase()) || 
-            knownSong.toLowerCase().includes(title.toLowerCase())) {
+        if (stringsMatch(title, knownSong)) {
           console.log(`Found exact song match: ${knownArtist} - ${knownSong}`);
           return popularSongs[knownArtist][knownSong];
         }
@@ -445,7 +472,7 @@ export const recognizeMusic = async (audioBlob: Blob): Promise<any> => {
         
         // Try each query until we find a verified match
         for (const query of searchQueries) {
-          if (bestYoutubeId && isVerified) break; // Stop if we already found a verified match
+          if (isVerified) break; // Only break if we found a verified match
           
           const youtubeId = await searchYouTubeVideo(
             query, 

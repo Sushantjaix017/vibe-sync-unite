@@ -77,7 +77,7 @@ const SongResult: React.FC<SongResultProps> = ({ song, onPlay, onVibeTogether })
               {isRickroll ? (
                 <div className="flex items-center text-orange-400">
                   <AlertCircle size={16} className="mr-2" />
-                  <span className="text-sm">Video will be found during playback</span>
+                  <span className="text-sm">Better video will be found during playback</span>
                 </div>
               ) : (
                 <div className="flex items-center text-yellow-400">

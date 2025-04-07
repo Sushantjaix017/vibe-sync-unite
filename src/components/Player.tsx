@@ -36,6 +36,7 @@ const Player: React.FC<PlayerProps> = ({
   const [duration, setDuration] = useState(0);
   const [songTitle, setSongTitle] = useState('');
   const playerRef = useRef<any>(null);
+  const progressIntervalRef = useRef<number | null>(null);
   const [containerWidth, setContainerWidth] = useState(window.innerWidth);
   const [retryCount, setRetryCount] = useState(0);
   
@@ -54,11 +55,50 @@ const Player: React.FC<PlayerProps> = ({
     setDuration(0);
     setSongTitle('');
     setVideoId(song.youtubeId);
+    setRetryCount(0);
     
     if (!song.youtubeId || song.youtubeId === 'dQw4w9WgXcQ') {
       fetchVideoId();
     }
   }, [song]);
+
+  useEffect(() => {
+    return () => {
+      if (progressIntervalRef.current !== null) {
+        clearInterval(progressIntervalRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!playerRef.current) return;
+    
+    if (progressIntervalRef.current !== null) {
+      clearInterval(progressIntervalRef.current);
+    }
+    
+    const intervalId = setInterval(() => {
+      if (playerRef.current) {
+        try {
+          const currentTime = playerRef.current.getCurrentTime() || 0;
+          const duration = playerRef.current.getDuration() || 0;
+          setCurrentTime(currentTime);
+          setDuration(duration);
+          const progressPercent = (currentTime / duration) * 100;
+          setProgress(progressPercent);
+        } catch (err) {
+          console.error("Error updating progress:", err);
+        }
+      }
+    }, 1000);
+    
+    progressIntervalRef.current = intervalId as unknown as number;
+    
+    return () => {
+      clearInterval(intervalId);
+      progressIntervalRef.current = null;
+    };
+  }, [playerRef.current]);
 
   const fetchVideoId = async () => {
     if (!song || !song.title || !song.artist) {
@@ -74,36 +114,39 @@ const Player: React.FC<PlayerProps> = ({
         `${song.title} by ${song.artist}`
       ];
       
-      let foundVideoId = null;
+      let bestVideoId = null;
+      let isVerified = false;
       
       for (const query of searchQueries) {
-        if (foundVideoId) break;
+        if (isVerified) break;
         
         const newId = await searchYouTubeVideo(query, song.artist, song.title);
         
         if (newId && newId !== 'dQw4w9WgXcQ') {
-          const isVerified = await verifyYouTubeMatch(newId, song.artist, song.title);
+          const matchVerified = await verifyYouTubeMatch(newId, song.artist, song.title);
           
-          if (isVerified) {
-            foundVideoId = newId;
+          if (matchVerified) {
+            bestVideoId = newId;
+            isVerified = true;
             console.log(`Found verified match with query "${query}": ${newId}`);
-            break;
-          } else if (!foundVideoId) {
-            foundVideoId = newId;
+          } else if (!bestVideoId) {
+            bestVideoId = newId;
           }
         }
       }
       
-      if (foundVideoId) {
-        setVideoId(foundVideoId);
+      if (bestVideoId) {
+        setVideoId(bestVideoId);
         toast({
-          title: 'Song Verified',
-          description: 'Playing the correct video from YouTube',
+          title: isVerified ? 'Song Verified' : 'Best Match Found',
+          description: isVerified 
+            ? 'Playing the correct video from YouTube' 
+            : 'Playing closest match we could find',
         });
       } else {
         toast({
           title: 'Notice',
-          description: 'Could not find an exact match for this song',
+          description: 'Could not find a match for this song',
           variant: 'default',
         });
       }
@@ -116,8 +159,13 @@ const Player: React.FC<PlayerProps> = ({
       });
       
       if (retryCount < 2) {
-        setRetryCount(prevCount => prevCount + 1);
-        fetchVideoId();
+        const nextRetryCount = retryCount + 1;
+        setRetryCount(nextRetryCount);
+        
+        setTimeout(() => {
+          console.log(`Retry attempt ${nextRetryCount} of 3`);
+          fetchVideoId();
+        }, 1500);
       }
     } finally {
       setIsVerifying(false);
@@ -135,23 +183,6 @@ const Player: React.FC<PlayerProps> = ({
         console.error("Error starting playback:", err);
       }
     }
-    
-    const intervalId = setInterval(() => {
-      if (playerRef.current) {
-        try {
-          const currentTime = playerRef.current.getCurrentTime() || 0;
-          const duration = playerRef.current.getDuration() || 0;
-          setCurrentTime(currentTime);
-          setDuration(duration);
-          const progressPercent = (currentTime / duration) * 100;
-          setProgress(progressPercent);
-        } catch (err) {
-          console.error("Error updating progress:", err);
-        }
-      }
-    }, 1000);
-
-    return () => clearInterval(intervalId);
   };
 
   const onStateChange = (event: any) => {
@@ -167,9 +198,9 @@ const Player: React.FC<PlayerProps> = ({
             setSongTitle(videoData.title);
             console.log("Now playing:", videoData.title);
             
-            const videoTitle = videoData.title.toLowerCase();
-            const expectedArtist = song.artist.toLowerCase();
-            const expectedTitle = song.title.toLowerCase();
+            const videoTitle = normalizeString(videoData.title);
+            const expectedArtist = normalizeString(song.artist);
+            const expectedTitle = normalizeString(song.title);
             
             const artistMatches = videoTitle.includes(expectedArtist);
             const titleMatches = videoTitle.includes(expectedTitle);
@@ -181,8 +212,6 @@ const Player: React.FC<PlayerProps> = ({
                 description: `Playing closest match to "${song.artist} - ${song.title}"`,
                 variant: "default"
               });
-              
-              fetchVideoId();
             }
           }
         } catch (e) {
@@ -194,6 +223,13 @@ const Player: React.FC<PlayerProps> = ({
     } else if (playerState === 0) {
       setIsPlaying(false);
     }
+  };
+
+  const normalizeString = (str: string): string => {
+    return str.toLowerCase()
+      .replace(/[^\w\s]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
   };
 
   const onPlayerError = (event: any) => {
@@ -225,6 +261,30 @@ const Player: React.FC<PlayerProps> = ({
     }
   };
 
+  const skipForward = () => {
+    if (playerRef.current) {
+      try {
+        const newTime = Math.min(currentTime + 10, duration);
+        playerRef.current.seekTo(newTime);
+        setCurrentTime(newTime);
+      } catch (error) {
+        console.error("Error skipping forward:", error);
+      }
+    }
+  };
+
+  const skipBackward = () => {
+    if (playerRef.current) {
+      try {
+        const newTime = Math.max(currentTime - 10, 0);
+        playerRef.current.seekTo(newTime);
+        setCurrentTime(newTime);
+      } catch (error) {
+        console.error("Error skipping backward:", error);
+      }
+    }
+  };
+
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = Math.floor(seconds % 60);
@@ -233,6 +293,18 @@ const Player: React.FC<PlayerProps> = ({
 
   const toggleVideoMode = () => {
     setVideoMode(!videoMode);
+    
+    if (!videoMode && playerRef.current) {
+      setTimeout(() => {
+        try {
+          if (isPlaying) {
+            playerRef.current.playVideo();
+          }
+        } catch (error) {
+          console.error("Error reinitializing video:", error);
+        }
+      }, 100);
+    }
   };
 
   const playerHeight = videoMode ? Math.min(containerWidth * 0.5625, 360) : 0;
@@ -370,7 +442,11 @@ const Player: React.FC<PlayerProps> = ({
           </div>
           
           <div className="flex items-center justify-center space-x-8">
-            <button className="text-blue-200/70 hover:text-white transition-colors">
+            <button 
+              onClick={skipBackward}
+              className="text-blue-200/70 hover:text-white transition-colors"
+              aria-label="Skip backwards 10 seconds"
+            >
               <SkipBack size={28} />
             </button>
             
@@ -385,7 +461,11 @@ const Player: React.FC<PlayerProps> = ({
               )}
             </button>
             
-            <button className="text-blue-200/70 hover:text-white transition-colors">
+            <button 
+              onClick={skipForward}
+              className="text-blue-200/70 hover:text-white transition-colors"
+              aria-label="Skip forward 10 seconds"
+            >
               <SkipForward size={28} />
             </button>
           </div>
