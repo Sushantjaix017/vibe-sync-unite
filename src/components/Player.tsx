@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, SkipForward, SkipBack, Music, Video } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Play, Pause, SkipForward, SkipBack, Music, Video, ExternalLink } from 'lucide-react';
 import Header from './Header';
 import YouTube from 'react-youtube';
 import { toast } from "@/hooks/use-toast";
@@ -26,21 +26,19 @@ const Player: React.FC<PlayerProps> = ({
   participants = 1,
   onBack 
 }) => {
+  const [videoId, setVideoId] = useState<string | undefined>(song.youtubeId);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [progress, setProgress] = useState(0);
+  const [isVerifying, setIsVerifying] = useState<boolean>(false);
   const [showChat, setShowChat] = useState(false);
   const [videoMode, setVideoMode] = useState(true);
+  const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [songTitle, setSongTitle] = useState('');
   const playerRef = useRef<any>(null);
   const [containerWidth, setContainerWidth] = useState(window.innerWidth);
-  const [playerError, setPlayerError] = useState(false);
-  const [songTitle, setSongTitle] = useState('');
-  const [currentYoutubeId, setCurrentYoutubeId] = useState<string | undefined>(song.youtubeId);
-  const [isVerifyingVideo, setIsVerifyingVideo] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
-  const [skipRickRoll, setSkipRickRoll] = useState(true);
-
+  
   useEffect(() => {
     const handleResize = () => {
       setContainerWidth(window.innerWidth);
@@ -50,274 +48,85 @@ const Player: React.FC<PlayerProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const resetPlayerState = () => {
+  useEffect(() => {
     setProgress(0);
     setCurrentTime(0);
     setDuration(0);
     setSongTitle('');
-    setPlayerError(false);
-  };
-
-  useEffect(() => {
-    const verifySongMatch = async () => {
-      resetPlayerState();
-      
-      if (!song || !song.title || !song.artist) {
-        console.error("Invalid song data:", song);
-        return;
-      }
-      
-      console.log(`Verifying song: ${song.artist} - ${song.title} (ID: ${song.youtubeId})`);
-      setIsVerifyingVideo(true);
-      
-      try {
-        let finalYoutubeId = song.youtubeId;
-        let videoIsVerified = false;
-        
-        if (skipRickRoll && finalYoutubeId === 'dQw4w9WgXcQ') {
-          console.log("Rick Astley detected, searching for the actual song...");
-          
-          const searchQueries = [
-            `${song.artist} - ${song.title} official audio`,
-            `${song.artist} - ${song.title} official video`,
-            `${song.artist} - ${song.title} lyrics`,
-            `${song.title} by ${song.artist}`
-          ];
-          
-          for (const query of searchQueries) {
-            const alternativeId = await searchYouTubeVideo(query, song.artist, song.title);
-            
-            if (alternativeId && alternativeId !== 'dQw4w9WgXcQ') {
-              toast({
-                title: "Better Match Found",
-                description: `Found actual video for "${song.title}"`,
-              });
-              finalYoutubeId = alternativeId;
-              break;
-            }
-          }
-        }
-        
-        if (song.isVerified && finalYoutubeId && finalYoutubeId !== 'dQw4w9WgXcQ') {
-          console.log("Song is pre-verified, using provided YouTube ID");
-          finalYoutubeId = finalYoutubeId;
-          videoIsVerified = true;
-        }
-        else if (finalYoutubeId) {
-          const isMatch = await verifyYouTubeMatch(finalYoutubeId, song.artist, song.title);
-          
-          if (isMatch) {
-            console.log("YouTube ID matches song, using it");
-            finalYoutubeId = finalYoutubeId;
-            videoIsVerified = true;
-          } else {
-            console.log("YouTube ID does not match song, searching for better match");
-            const specificQueries = [
-              `${song.artist} - ${song.title} official audio`,
-              `${song.artist} - ${song.title} official video`,
-              `${song.artist} - ${song.title} lyrics`,
-              `${song.title} by ${song.artist}`
-            ];
-            
-            for (const query of specificQueries) {
-              const betterMatch = await searchYouTubeVideo(query, song.artist, song.title);
-              
-              if (betterMatch && betterMatch !== finalYoutubeId && betterMatch !== 'dQw4w9WgXcQ') {
-                const newIsVerified = await verifyYouTubeMatch(betterMatch, song.artist, song.title);
-                
-                if (newIsVerified) {
-                  console.log(`Found verified match with query "${query}": ${betterMatch}`);
-                  finalYoutubeId = betterMatch;
-                  videoIsVerified = true;
-                  toast({
-                    title: "Better Match Found",
-                    description: `Playing improved match for "${song.title}"`,
-                  });
-                  break;
-                }
-              }
-            }
-            
-            if (!videoIsVerified) {
-              console.log("No verified match found, using best available");
-            }
-          }
-        }
-        else {
-          console.log("No YouTube ID provided, searching for one");
-          const searchQuery = `${song.artist} - ${song.title} official audio`;
-          const newId = await searchYouTubeVideo(searchQuery, song.artist, song.title);
-          
-          if (newId && newId !== 'dQw4w9WgXcQ') {
-            console.log(`Found YouTube match: ${newId}`);
-            finalYoutubeId = newId;
-            toast({
-              title: "Match Found",
-              description: `Found music video for "${song.title}"`,
-            });
-          } else {
-            console.error("Could not find YouTube match for:", song);
-            toast({
-              title: "Playback Issue",
-              description: "Could not find a match for this song",
-              variant: "destructive"
-            });
-          }
-        }
-        
-        if (finalYoutubeId) {
-          setCurrentYoutubeId(finalYoutubeId);
-        } else {
-          toast({
-            title: "Playback Error",
-            description: "Could not find a video for this song",
-            variant: "destructive"
-          });
-        }
-      } catch (error) {
-        console.error("Error verifying song match:", error);
-        if (retryCount < 3) {
-          setRetryCount(retryCount + 1);
-          
-          try {
-            const searchQuery = `${song.artist} - ${song.title} official`;
-            const fallbackId = await searchYouTubeVideo(searchQuery, song.artist, song.title);
-            
-            if (fallbackId && fallbackId !== 'dQw4w9WgXcQ') {
-              setCurrentYoutubeId(fallbackId);
-              toast({
-                title: "Verification Failed",
-                description: "Using best available match",
-                variant: "default"
-              });
-            }
-          } catch (secondError) {
-            console.error("Failed to find fallback match:", secondError);
-          }
-        } else {
-          toast({
-            title: "Playback Error",
-            description: "Could not verify song match after multiple attempts",
-            variant: "destructive"
-          });
-        }
-      } finally {
-        setIsVerifyingVideo(false);
-      }
-    };
+    setVideoId(song.youtubeId);
     
-    if (song) {
-      verifySongMatch();
+    if (!song.youtubeId || song.youtubeId === 'dQw4w9WgXcQ') {
+      fetchVideoId();
     }
-    
-    setRetryCount(0);
   }, [song]);
 
-  useEffect(() => {
-    if (currentYoutubeId && playerRef.current && playerRef.current.internalPlayer) {
-      try {
-        playerRef.current.internalPlayer.loadVideoById(currentYoutubeId);
-        
-        if (isPlaying) {
-          playerRef.current.internalPlayer.playVideo();
-        } else {
-          playerRef.current.internalPlayer.pauseVideo();
-        }
-      } catch (error) {
-        console.error("Error updating YouTube video:", error);
-      }
+  const fetchVideoId = async () => {
+    if (!song || !song.title || !song.artist) {
+      return;
     }
-  }, [currentYoutubeId]);
 
-  const togglePlayPause = () => {
-    if (playerRef.current && playerRef.current.internalPlayer) {
-      try {
-        if (isPlaying) {
-          playerRef.current.internalPlayer.pauseVideo();
-        } else {
-          playerRef.current.internalPlayer.playVideo();
-        }
-        setIsPlaying(!isPlaying);
-      } catch (error) {
-        console.error("Error toggling play/pause:", error);
-        setIsPlaying(!isPlaying);
-      }
-    } else {
-      console.log("Player reference not available yet");
-      setIsPlaying(!isPlaying);
-    }
-  };
-
-  const onStateChange = (event: any) => {
-    const playerState = event.data;
-    
-    if (playerState === 1) {
-      setIsPlaying(true);
+    setIsVerifying(true);
+    try {
+      const searchQueries = [
+        `${song.artist} - ${song.title} official audio`,
+        `${song.artist} - ${song.title} official video`,
+        `${song.artist} - ${song.title} lyrics`,
+        `${song.title} by ${song.artist}`
+      ];
       
-      if (!songTitle && playerRef.current && playerRef.current.internalPlayer) {
-        try {
-          playerRef.current.internalPlayer.getVideoData().then((data: any) => {
-            if (data && data.title) {
-              setSongTitle(data.title);
-              console.log("Now playing:", data.title);
-              
-              const videoTitle = data.title.toLowerCase();
-              const expectedArtist = song.artist.toLowerCase();
-              const expectedTitle = song.title.toLowerCase();
-              
-              const artistMatches = videoTitle.includes(expectedArtist);
-              const titleMatches = videoTitle.includes(expectedTitle);
-              
-              if (!artistMatches && !titleMatches) {
-                console.warn("Video title doesn't match expected song:", data.title);
-                toast({
-                  title: "Song Mismatch Warning",
-                  description: `Playing closest match to "${song.artist} - ${song.title}"`,
-                  variant: "default"
-                });
-                
-                const searchNewMatch = async () => {
-                  try {
-                    const exactQuery = `${song.artist} - ${song.title} official music video`;
-                    const newMatch = await searchYouTubeVideo(exactQuery, song.artist, song.title);
-                    
-                    if (newMatch && newMatch !== currentYoutubeId) {
-                      const isVerified = await verifyYouTubeMatch(newMatch, song.artist, song.title);
-                      
-                      if (isVerified) {
-                        toast({
-                          title: "Better Match Found",
-                          description: "Switching to correct video",
-                        });
-                        setCurrentYoutubeId(newMatch);
-                      }
-                    }
-                  } catch (err) {
-                    console.error("Error finding better match:", err);
-                  }
-                };
-                
-                searchNewMatch();
-              }
-            }
-          }).catch((error) => {
-            console.error("Error getting video data:", error);
-          });
-        } catch (e) {
-          console.log("Couldn't get video data:", e);
+      let foundVideoId = null;
+      
+      for (const query of searchQueries) {
+        if (foundVideoId) break;
+        
+        const newId = await searchYouTubeVideo(query, song.artist, song.title);
+        
+        if (newId && newId !== 'dQw4w9WgXcQ') {
+          const isVerified = await verifyYouTubeMatch(newId, song.artist, song.title);
+          
+          if (isVerified) {
+            foundVideoId = newId;
+            console.log(`Found verified match with query "${query}": ${newId}`);
+            break;
+          } else if (!foundVideoId) {
+            foundVideoId = newId;
+          }
         }
       }
-    } else if (playerState === 2) {
-      setIsPlaying(false);
-    } else if (playerState === 0) {
-      setIsPlaying(false);
+      
+      if (foundVideoId) {
+        setVideoId(foundVideoId);
+        toast({
+          title: 'Song Verified',
+          description: 'Playing the correct video from YouTube',
+        });
+      } else {
+        toast({
+          title: 'Notice',
+          description: 'Could not find an exact match for this song',
+          variant: 'default',
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching YouTube ID:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to search for the song',
+        variant: 'destructive',
+      });
+      
+      if (retryCount < 2) {
+        setRetryCount(prevCount => prevCount + 1);
+        fetchVideoId();
+      }
+    } finally {
+      setIsVerifying(false);
     }
   };
 
   const onPlayerReady = (event: any) => {
     console.log("YouTube player ready");
     playerRef.current = event.target;
-    setPlayerError(false);
     
     if (isPlaying) {
       try {
@@ -345,102 +154,75 @@ const Player: React.FC<PlayerProps> = ({
     return () => clearInterval(intervalId);
   };
 
-  const onPlayerError = (event: any) => {
-    console.error("YouTube player error:", event);
-    setPlayerError(true);
+  const onStateChange = (event: any) => {
+    const playerState = event.data;
     
-    const searchForAlternative = async () => {
-      toast({
-        title: "Playback Error",
-        description: "Looking for an alternative source...",
-        variant: "default"
-      });
+    if (playerState === 1) {
+      setIsPlaying(true);
       
-      try {
-        const searches = [
-          `${song.artist} - ${song.title} audio only`,
-          `${song.artist} - ${song.title} lyrics video`,
-          `${song.title} by ${song.artist} official`,
-          `${song.artist} ${song.title}`
-        ];
-        
-        let alternativeId = null;
-        
-        for (const query of searches) {
-          if (alternativeId) break;
-          
-          alternativeId = await searchYouTubeVideo(
-            query, 
-            song.artist, 
-            song.title
-          );
-          
-          if (alternativeId && alternativeId !== currentYoutubeId && alternativeId !== 'dQw4w9WgXcQ') {
-            console.log(`Found alternative video with query "${query}": ${alternativeId}`);
-            break;
-          }
-        }
-        
-        if (alternativeId && alternativeId !== currentYoutubeId && alternativeId !== 'dQw4w9WgXcQ') {
-          setCurrentYoutubeId(alternativeId);
-          
-          toast({
-            title: "Alternative Found",
-            description: "Playing from alternative source",
-            variant: "default"
-          });
-        } else {
-          if (retryCount >= 2) {
-            const artistQuery = `${song.artist} official audio`;
-            const lastResortId = await searchYouTubeVideo(artistQuery, song.artist, "");
+      if (!songTitle && playerRef.current) {
+        try {
+          const videoData = playerRef.current.getVideoData();
+          if (videoData && videoData.title) {
+            setSongTitle(videoData.title);
+            console.log("Now playing:", videoData.title);
             
-            if (lastResortId && lastResortId !== currentYoutubeId && lastResortId !== 'dQw4w9WgXcQ') {
-              setCurrentYoutubeId(lastResortId);
+            const videoTitle = videoData.title.toLowerCase();
+            const expectedArtist = song.artist.toLowerCase();
+            const expectedTitle = song.title.toLowerCase();
+            
+            const artistMatches = videoTitle.includes(expectedArtist);
+            const titleMatches = videoTitle.includes(expectedTitle);
+            
+            if (!artistMatches && !titleMatches) {
+              console.warn("Video title doesn't match expected song:", videoData.title);
               toast({
-                title: "Playing Different Song",
-                description: `Couldn't play "${song.title}", trying another song by ${song.artist}`,
+                title: "Song Mismatch Warning",
+                description: `Playing closest match to "${song.artist} - ${song.title}"`,
                 variant: "default"
               });
-            } else {
-              toast({
-                title: "Playback Error",
-                description: "Could not play this song. Try detecting again.",
-                variant: "destructive"
-              });
-            }
-          } else {
-            setRetryCount(retryCount + 1);
-            toast({
-              title: "Retrying...",
-              description: "Trying another approach",
-              variant: "default"
-            });
-            
-            const lastAttemptQuery = `"${song.title}" "${song.artist}" music`;
-            const lastAttemptId = await searchYouTubeVideo(lastAttemptQuery, song.artist, song.title);
-            
-            if (lastAttemptId && lastAttemptId !== currentYoutubeId && lastAttemptId !== 'dQw4w9WgXcQ') {
-              setCurrentYoutubeId(lastAttemptId);
-            } else {
-              toast({
-                title: "Playback Error",
-                description: "Could not play this song. Try detecting again.",
-                variant: "destructive"
-              });
+              
+              fetchVideoId();
             }
           }
+        } catch (e) {
+          console.log("Couldn't get video data:", e);
         }
-      } catch (error) {
-        console.error("Error finding alternative:", error);
-        toast({
-          title: "Playback Error",
-          description: "Could not play this video. Try detecting again.",
-          variant: "destructive"
-        });
       }
-    };
+    } else if (playerState === 2) {
+      setIsPlaying(false);
+    } else if (playerState === 0) {
+      setIsPlaying(false);
+    }
+  };
+
+  const onPlayerError = (event: any) => {
+    console.error("YouTube player error:", event);
     
-    searchForAlternative();
+    toast({
+      title: "Playback Error",
+      description: "Looking for an alternative source...",
+      variant: "default"
+    });
+    
+    fetchVideoId();
+  };
+
+  const togglePlayPause = () => {
+    if (playerRef.current) {
+      try {
+        if (isPlaying) {
+          playerRef.current.pauseVideo();
+        } else {
+          playerRef.current.playVideo();
+        }
+        setIsPlaying(!isPlaying);
+      } catch (error) {
+        console.error("Error toggling play/pause:", error);
+      }
+    } else {
+      setIsPlaying(!isPlaying);
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -498,18 +280,18 @@ const Player: React.FC<PlayerProps> = ({
         <div className="absolute bottom-[20%] left-[20%] text-xl opacity-10 float-fast">🎧</div>
         
         <div className="w-full mb-6 overflow-hidden rounded-lg shadow-[0_0_30px_rgba(155,135,245,0.2)] border border-syncme-light-purple/10">
-          {isVerifyingVideo ? (
+          {isVerifying ? (
             <div className="flex items-center justify-center w-full h-48 bg-syncme-dark/80">
               <div className="text-center">
                 <div className="animate-spin inline-block w-8 h-8 border-4 border-syncme-light-purple border-t-transparent rounded-full mb-2"></div>
-                <p className="text-blue-200">Verifying best match...</p>
+                <p className="text-blue-200">Finding the best match...</p>
               </div>
             </div>
-          ) : currentYoutubeId ? (
+          ) : videoId ? (
             videoMode ? (
               <div className="w-full" style={{ height: playerHeight }}>
                 <YouTube
-                  videoId={currentYoutubeId}
+                  videoId={videoId}
                   opts={playerOptions}
                   onReady={onPlayerReady}
                   onStateChange={onStateChange}
@@ -561,6 +343,17 @@ const Player: React.FC<PlayerProps> = ({
               <p className="text-xs text-blue-200/50 mt-1">
                 Playing: {songTitle}
               </p>
+            )}
+            {videoId && (
+              <a 
+                href={`https://www.youtube.com/watch?v=${videoId}`} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-xs flex items-center text-syncme-light-purple hover:underline mt-1"
+              >
+                <ExternalLink size={12} className="mr-1" />
+                Open on YouTube
+              </a>
             )}
           </div>
           

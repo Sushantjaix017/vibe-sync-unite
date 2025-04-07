@@ -19,8 +19,8 @@ interface SongResultProps {
 }
 
 const SongResult: React.FC<SongResultProps> = ({ song, onPlay, onVibeTogether }) => {
-  // Don't show YouTube warning if there's no ID (will be searched during play)
-  const showYoutubeWarning = song.youtubeId === 'dQw4w9WgXcQ';
+  // Check if the YouTube ID might be a rickroll
+  const isRickroll = song.youtubeId === 'dQw4w9WgXcQ';
   
   return (
     <div className="w-full max-w-md animate-fade-in">
@@ -74,15 +74,15 @@ const SongResult: React.FC<SongResultProps> = ({ song, onPlay, onVibeTogether })
             </div>
           ) : (
             <div className="mb-4 flex items-center justify-center py-2 px-3 rounded-lg bg-white/5">
-              {showYoutubeWarning ? (
+              {isRickroll ? (
                 <div className="flex items-center text-orange-400">
                   <AlertCircle size={16} className="mr-2" />
-                  <span className="text-sm">YouTube match not found - will search on play</span>
+                  <span className="text-sm">Video will be found during playback</span>
                 </div>
               ) : (
                 <div className="flex items-center text-yellow-400">
                   <Music size={16} className="mr-2" />
-                  <span className="text-sm">Best match found - may not be exact</span>
+                  <span className="text-sm">Best match found - will verify on play</span>
                 </div>
               )}
             </div>
