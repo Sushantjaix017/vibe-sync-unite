@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Play, Users, ExternalLink, CheckCircle, AlertCircle, Music } from 'lucide-react';
+import { Play, Users, ExternalLink, CheckCircle, AlertCircle, Music, Headphones } from 'lucide-react';
 
 interface Song {
   title: string;
@@ -16,9 +16,10 @@ interface SongResultProps {
   song: Song;
   onPlay: () => void;
   onVibeTogether: () => void;
+  onAudioOnly?: () => void;
 }
 
-const SongResult: React.FC<SongResultProps> = ({ song, onPlay, onVibeTogether }) => {
+const SongResult: React.FC<SongResultProps> = ({ song, onPlay, onVibeTogether, onAudioOnly }) => {
   // Check if the YouTube ID might be a rickroll
   const isRickroll = song.youtubeId === 'dQw4w9WgXcQ';
   
@@ -52,7 +53,9 @@ const SongResult: React.FC<SongResultProps> = ({ song, onPlay, onVibeTogether })
               <p className="font-medium text-blue-100">📅 {song.year}</p>
             </div>
             <a 
-              href="#" 
+              href={`https://www.youtube.com/watch?v=${song.youtubeId}`} 
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex items-center text-syncme-light-purple hover:underline"
             >
               <span className="mr-1">Info</span>
@@ -94,8 +97,18 @@ const SongResult: React.FC<SongResultProps> = ({ song, onPlay, onVibeTogether })
               className="flex items-center justify-center py-3 rounded-lg btn-primary"
             >
               <Play size={20} className="mr-2" />
-              Play Now
+              Play Video
             </button>
+            
+            {onAudioOnly && (
+              <button 
+                onClick={onAudioOnly}
+                className="flex items-center justify-center py-3 rounded-lg bg-syncme-light-purple/30 hover:bg-syncme-light-purple/40 text-white transition-colors"
+              >
+                <Headphones size={20} className="mr-2" />
+                Audio Only
+              </button>
+            )}
             
             <button 
               onClick={onVibeTogether}

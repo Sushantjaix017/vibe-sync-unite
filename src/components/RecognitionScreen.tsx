@@ -1,9 +1,9 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import WaveformAnimation from './WaveformAnimation';
 import Header from './Header';
-import { recordAudio, recognizeMusic } from '@/utils/musicDetection';
 import { toast } from '@/hooks/use-toast';
+import { AudioRecognizer } from '@/utils/AudioRecognizer';
+import { searchYouTubeVideo, verifyYouTubeMatch } from '@/utils/musicDetection';
 
 interface RecognitionScreenProps {
   isListening: boolean;
@@ -17,51 +17,123 @@ const RecognitionScreen: React.FC<RecognitionScreenProps> = ({
   onSongRecognized
 }) => {
   const [status, setStatus] = useState<'ready' | 'recording' | 'processing' | 'verifying'>('ready');
+  const audioRecognizer = useRef<AudioRecognizer | null>(null);
   
   useEffect(() => {
+    audioRecognizer.current = new AudioRecognizer();
+    
     if (isListening) {
       detectMusic();
     }
     
-    // Cleanup function
     return () => {
-      // Additional cleanup if needed
+      if (audioRecognizer.current) {
+        audioRecognizer.current.cleanup();
+      }
     };
   }, [isListening]);
   
   const detectMusic = async () => {
     try {
+      if (!audioRecognizer.current) {
+        audioRecognizer.current = new AudioRecognizer();
+      }
+      
       setStatus('recording');
       
-      // Record audio from microphone
-      const audioBlob = await recordAudio();
-      
-      setStatus('processing');
-      
-      // Send audio to audd.io for recognition
-      const song = await recognizeMusic(audioBlob);
-      
-      if (song) {
-        // If we have a verified YouTube ID, show that we're double-checking
-        if (!song.isVerified) {
-          setStatus('verifying');
-          toast({
-            title: "Song Found",
-            description: "Verifying YouTube match...",
-          });
-        }
-        
-        // Send the recognized song to the parent component
-        onSongRecognized(song);
-      } else {
+      const initialized = await audioRecognizer.current.init();
+      if (!initialized) {
         toast({
-          title: "No music detected",
-          description: "Please try again with clearer audio",
+          title: "Microphone Error",
+          description: "Please allow microphone access to detect music",
           variant: "destructive"
         });
         onCancel();
+        return;
       }
       
+      await audioRecognizer.current.startRecording();
+      
+      setTimeout(async () => {
+        if (!audioRecognizer.current) return;
+        
+        const audioBlob = await audioRecognizer.current.stopRecording();
+        
+        if (!audioBlob) {
+          toast({
+            title: "Recording Error",
+            description: "Failed to capture audio. Please try again.",
+            variant: "destructive"
+          });
+          onCancel();
+          return;
+        }
+        
+        setStatus('processing');
+        
+        const recognizedSong = await audioRecognizer.current.recognizeSong(audioBlob);
+        
+        if (recognizedSong) {
+          setStatus('verifying');
+          
+          const searchQueries = [
+            `${recognizedSong.artist} - ${recognizedSong.title} official audio`,
+            `${recognizedSong.artist} - ${recognizedSong.title} official video`,
+            `${recognizedSong.artist} - ${recognizedSong.title} lyrics`
+          ];
+          
+          let bestYoutubeId = null;
+          let isVerified = false;
+          
+          for (const query of searchQueries) {
+            if (isVerified) break;
+            
+            const youtubeId = await searchYouTubeVideo(
+              query, 
+              recognizedSong.artist, 
+              recognizedSong.title
+            );
+            
+            if (youtubeId) {
+              const verificationResult = await verifyYouTubeMatch(
+                youtubeId, 
+                recognizedSong.artist, 
+                recognizedSong.title
+              );
+              
+              if (verificationResult) {
+                bestYoutubeId = youtubeId;
+                isVerified = true;
+                console.log(`Found verified match with query "${query}": ${youtubeId}`);
+                break;
+              } else if (!bestYoutubeId) {
+                bestYoutubeId = youtubeId;
+                console.log(`Found unverified match: ${youtubeId}`);
+              }
+            }
+          }
+          
+          const songWithYoutube = {
+            ...recognizedSong,
+            youtubeId: bestYoutubeId,
+            isVerified
+          };
+          
+          onSongRecognized(songWithYoutube);
+          
+          toast({
+            title: "Song Found",
+            description: `${recognizedSong.title} by ${recognizedSong.artist}`,
+          });
+        } else {
+          toast({
+            title: "No music detected",
+            description: "Please try again with clearer audio",
+            variant: "destructive"
+          });
+          onCancel();
+        }
+      }, 5000);
     } catch (error) {
       console.error('Error during music detection:', error);
       toast({
@@ -104,7 +176,6 @@ const RecognitionScreen: React.FC<RecognitionScreenProps> = ({
       <Header title="Detecting Music 🎵" showBackButton={false} />
       
       <div className="flex flex-col items-center justify-center flex-1 p-6 relative">
-        {/* Floating music emojis */}
         <div className="absolute top-10 left-[10%] text-2xl opacity-20 float-slow">🎵</div>
         <div className="absolute top-[15%] right-[15%] text-xl opacity-15 float">🎧</div>
         <div className="absolute bottom-[20%] left-[20%] text-xl opacity-20 float-fast">🎸</div>

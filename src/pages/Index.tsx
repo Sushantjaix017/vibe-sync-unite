@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import DetectButton from '@/components/DetectButton';
 import RecognitionScreen from '@/components/RecognitionScreen';
@@ -10,7 +9,7 @@ import { sampleSongs, generateRoomCode } from '@/utils/mockData';
 import { Music } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from '@/hooks/use-toast';
-import { verifyYouTubeMatch, searchYouTubeVideo } from '@/utils/musicDetection';
+import { useYoutubePlayer } from '@/hooks/use-youtube-player';
 
 enum AppState {
   HOME,
@@ -29,65 +28,17 @@ const Index = () => {
   const [videoMode, setVideoMode] = useState(true);
   const isMobile = useIsMobile();
   
-  // Start the detection process
   const handleDetect = () => {
     setIsDetecting(true);
     setAppState(AppState.DETECTING);
   };
   
-  // Called when the waveform animation should start
   const startListening = () => {
-    // This function is passed to DetectButton and is called when the user clicks to detect
     console.log("Starting music detection process...");
   };
   
-  // Called when a song is successfully recognized
-  const handleSongRecognized = async (song: any) => {
+  const handleSongRecognized = (song: any) => {
     console.log("Song recognized:", song);
-    
-    // If the song doesn't have a YouTubeId or it's not verified, try to find and verify one
-    if (!song.youtubeId) {
-      try {
-        const searchQuery = `${song.artist} - ${song.title} official`;
-        const youtubeId = await searchYouTubeVideo(searchQuery, song.artist, song.title);
-        
-        if (youtubeId) {
-          song = { ...song, youtubeId };
-        }
-      } catch (error) {
-        console.error("Error finding YouTube video:", error);
-      }
-    }
-    
-    // If the song has a YouTube ID but it's not verified, try to verify it
-    if (song.youtubeId && song.isVerified === false) {
-      try {
-        const isVerified = await verifyYouTubeMatch(song.youtubeId, song.artist, song.title);
-        
-        // If it's not verified, try to find a better match
-        if (!isVerified) {
-          const specificQuery = `${song.artist} - ${song.title} official music video`;
-          const betterMatch = await searchYouTubeVideo(specificQuery, song.artist, song.title);
-          
-          if (betterMatch && betterMatch !== song.youtubeId) {
-            // Verify this new match
-            const newIsVerified = await verifyYouTubeMatch(betterMatch, song.artist, song.title);
-            
-            if (newIsVerified) {
-              song = { ...song, youtubeId: betterMatch, isVerified: true };
-              console.log(`Updated YouTube ID to verified match: ${betterMatch}`);
-            }
-          }
-        } else {
-          // If it is verified, update the song object
-          song = { ...song, isVerified: true };
-        }
-      } catch (error) {
-        console.error("Error verifying YouTube match:", error);
-      }
-    }
-    
-    // Update the recognized song in the state
     setRecognizedSong(song);
     setIsDetecting(false);
     setAppState(AppState.RESULT);
@@ -142,7 +93,6 @@ const Index = () => {
         <>
           <Header />
           <main className="flex-1 flex flex-col items-center justify-center p-6 relative">
-            {/* Floating music emojis */}
             <div className="absolute top-10 left-[10%] text-2xl opacity-20 float-slow">🎵</div>
             <div className="absolute top-[15%] right-[15%] text-3xl opacity-15 float">🎶</div>
             <div className="absolute bottom-[20%] left-[20%] text-xl opacity-20 float-fast">🎧</div>
@@ -207,6 +157,7 @@ const Index = () => {
             <SongResult 
               song={recognizedSong}
               onPlay={handlePlay}
+              onAudioOnly={handleAudioOnly}
               onVibeTogether={handleVibeTogether}
             />
           </div>
