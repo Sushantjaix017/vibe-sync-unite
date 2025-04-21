@@ -1,7 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Copy, Users } from 'lucide-react';
 import Header from './Header';
+import { getSocket } from '../utils/socket';
 
 interface RoomScreenProps {
   roomCode?: string;
@@ -24,6 +25,30 @@ const RoomScreen: React.FC<RoomScreenProps> = ({
 }) => {
   const [joinCode, setJoinCode] = useState('');
   const [copied, setCopied] = useState(false);
+  const [socketState, setSocketState] = useState<null | string>(null);
+
+  useEffect(() => {
+    const socket = getSocket();
+
+    // Room creation/join listeners (demo only)
+    socket.on("room-created", (code: string) => {
+      setSocketState(`Room created: ${code}`);
+    });
+
+    socket.on("room-joined", (code: string) => {
+      setSocketState(`Joined room: ${code}`);
+    });
+
+    socket.on("room-error", (msg: string) => {
+      setSocketState(`Room error: ${msg}`);
+    });
+
+    return () => {
+      socket.off("room-created");
+      socket.off("room-joined");
+      socket.off("room-error");
+    };
+  }, []);
 
   const copyToClipboard = () => {
     if (roomCode) {
@@ -33,16 +58,35 @@ const RoomScreen: React.FC<RoomScreenProps> = ({
     }
   };
 
+  const handleCreateRoom = () => {
+    const socket = getSocket();
+    socket.emit("create-room");
+    onCreateRoom();
+  };
+
+  const handleJoinRoom = () => {
+    if (joinCode) {
+      const socket = getSocket();
+      socket.emit("join-room", joinCode);
+      onJoinRoom(joinCode);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 space-bg cosmic-dots flex flex-col animate-fade-in">
       <Header title="Vibe Together 👥" showBackButton={true} />
 
       <div className="flex flex-col items-center justify-center flex-1 p-6 relative">
-        {/* Floating emojis */}
         <div className="absolute top-10 left-[10%] text-2xl opacity-20 float-slow">👯</div>
         <div className="absolute top-[15%] right-[15%] text-xl opacity-15 float">🎧</div>
         <div className="absolute bottom-[20%] left-[20%] text-xl opacity-20 float-fast">🎉</div>
         <div className="absolute bottom-[30%] right-[10%] text-2xl opacity-10 float-slow">✨</div>
+
+        {socketState && (
+          <div className="mb-4 text-blue-300 text-center animate-fade-in">
+            {socketState}
+          </div>
+        )}
 
         {/* Host Screen */}
         {isHost && roomCode ? (
@@ -130,7 +174,7 @@ const RoomScreen: React.FC<RoomScreenProps> = ({
             
             <div className="flex flex-col space-y-3">
               <button
-                onClick={() => joinCode && onJoinRoom(joinCode)}
+                onClick={handleJoinRoom}
                 disabled={!joinCode}
                 className={`w-full py-3 rounded-lg flex items-center justify-center ${
                   joinCode 
@@ -148,7 +192,7 @@ const RoomScreen: React.FC<RoomScreenProps> = ({
               </div>
               
               <button
-                onClick={onCreateRoom}
+                onClick={handleCreateRoom}
                 className="w-full py-3 rounded-lg bg-syncme-orange hover:bg-syncme-orange/90 text-white transition-colors shadow-[0_0_15px_rgba(249,115,22,0.3)] flex items-center justify-center"
               >
                 <span className="mr-2 text-xl">✨</span> Create New Room

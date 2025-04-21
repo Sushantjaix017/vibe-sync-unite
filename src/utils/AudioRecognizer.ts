@@ -64,8 +64,8 @@ export class AudioRecognizer {
     isVerified: boolean;
   } | null> {
     try {
-      const API_TOKEN = "872cb77c2ee7145396020c4b7648501a"; // Using the token from your existing app
-      
+      const API_TOKEN = "613c8af850a263d2711d0267cdde41aa"; // <--- NEW audd.io API key
+
       const formData = new FormData();
       formData.append('file', audioBlob);
       formData.append('api_token', API_TOKEN);
