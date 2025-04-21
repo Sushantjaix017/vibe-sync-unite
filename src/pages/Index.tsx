@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DetectButton from '@/components/DetectButton';
 import RecognitionScreen from '@/components/RecognitionScreen';
 import SongResult from '@/components/SongResult';
@@ -26,6 +26,7 @@ const Index = () => {
   const [roomCode, setRoomCode] = useState<string | undefined>();
   const [isHost, setIsHost] = useState(false);
   const [videoMode, setVideoMode] = useState(true);
+  const [waitingForHost, setWaitingForHost] = useState(false);
   const isMobile = useIsMobile();
   
   const handleDetect = () => {
@@ -68,17 +69,26 @@ const Index = () => {
   
   const handleVibeTogether = () => {
     setAppState(AppState.ROOM);
+    setRoomCode(undefined);
+    setIsHost(false);
+    setWaitingForHost(false);
   };
   
   const handleCreateRoom = () => {
     setRoomCode(generateRoomCode());
     setIsHost(true);
+    setWaitingForHost(false);
   };
   
   const handleJoinRoom = (code: string) => {
     setRoomCode(code);
     setIsHost(false);
+    setWaitingForHost(true);
+  };
+  
+  const handleRoomContinue = () => {
     setAppState(AppState.PLAYING);
+    setWaitingForHost(false);
   };
   
   const handleBackToHome = () => {
@@ -86,6 +96,17 @@ const Index = () => {
     setRoomCode(undefined);
     setIsHost(false);
   };
+
+  useEffect(() => {
+    if (waitingForHost && !isHost && roomCode) {
+      const timeout = setTimeout(() => {
+        setAppState(AppState.PLAYING);
+        setWaitingForHost(false);
+      }, 2500);
+
+      return () => clearTimeout(timeout);
+    }
+  }, [waitingForHost, isHost, roomCode]);
 
   return (
     <div className="flex flex-col min-h-screen space-bg cosmic-dots overflow-hidden">
@@ -168,8 +189,10 @@ const Index = () => {
         <RoomScreen 
           roomCode={roomCode}
           isHost={isHost}
+          waitingForHost={waitingForHost}
           onJoinRoom={handleJoinRoom}
           onCreateRoom={handleCreateRoom}
+          onHostContinue={handleRoomContinue}
           onClose={() => setAppState(AppState.PLAYING)}
         />
       )}

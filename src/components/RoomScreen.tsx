@@ -6,16 +6,20 @@ import Header from './Header';
 interface RoomScreenProps {
   roomCode?: string;
   isHost: boolean;
+  waitingForHost?: boolean;
   onJoinRoom: (code: string) => void;
   onCreateRoom: () => void;
+  onHostContinue: () => void;
   onClose: () => void;
 }
 
 const RoomScreen: React.FC<RoomScreenProps> = ({ 
   roomCode, 
   isHost, 
+  waitingForHost,
   onJoinRoom, 
   onCreateRoom,
+  onHostContinue,
   onClose
 }) => {
   const [joinCode, setJoinCode] = useState('');
@@ -32,21 +36,24 @@ const RoomScreen: React.FC<RoomScreenProps> = ({
   return (
     <div className="fixed inset-0 z-50 space-bg cosmic-dots flex flex-col animate-fade-in">
       <Header title="Vibe Together 👥" showBackButton={true} />
-      
+
       <div className="flex flex-col items-center justify-center flex-1 p-6 relative">
         {/* Floating emojis */}
         <div className="absolute top-10 left-[10%] text-2xl opacity-20 float-slow">👯</div>
         <div className="absolute top-[15%] right-[15%] text-xl opacity-15 float">🎧</div>
         <div className="absolute bottom-[20%] left-[20%] text-xl opacity-20 float-fast">🎉</div>
         <div className="absolute bottom-[30%] right-[10%] text-2xl opacity-10 float-slow">✨</div>
-        
+
+        {/* Host Screen */}
         {isHost && roomCode ? (
           <div className="w-full max-w-md bg-syncme-dark/70 rounded-xl backdrop-blur-lg border border-syncme-light-purple/10 p-6 animate-fade-in card-glow">
             <div className="flex items-center justify-center mb-4">
               <span className="text-3xl mr-2">🎉</span>
               <h2 className="text-2xl font-bold mb-0 text-center text-glow">Room Created!</h2>
             </div>
-            <p className="text-center text-blue-200/80 mb-6">Share this code with friends to vibe together</p>
+            <p className="text-center text-blue-200/80 mb-6">
+              Share this code with friends to vibe together
+            </p>
             
             <div className="flex items-center justify-center mb-6 overflow-hidden rounded-lg">
               <div className="flex-1 bg-syncme-light-purple/20 p-5 rounded-l-lg font-mono text-xl text-center text-white border-r border-syncme-light-purple/10">
@@ -68,17 +75,38 @@ const RoomScreen: React.FC<RoomScreenProps> = ({
               <div className="emoji-bg mr-2 bg-syncme-light-purple/20">
                 <span className="text-xl">👥</span>
               </div>
-              <p className="text-blue-200/80">Waiting for others to join...</p>
+              <p className="text-blue-200/80">Waiting for friends to join...</p>
             </div>
             
             <button 
-              className="w-full py-3 rounded-lg btn-primary"
-              onClick={onClose}
+              className="w-full py-3 rounded-lg btn-primary mt-2"
+              onClick={onHostContinue}
             >
               Continue to Player
             </button>
           </div>
+        ) : /* Client: Waiting for Host */
+        (waitingForHost && roomCode) ? (
+          <div className="w-full max-w-md bg-syncme-dark/70 rounded-xl backdrop-blur-lg border border-syncme-light-purple/10 p-6 animate-fade-in card-glow">
+            <div className="flex items-center justify-center mb-4">
+              <span className="text-3xl mr-2">👥</span>
+              <h2 className="text-2xl font-bold mb-0 text-center text-glow">Joined Room</h2>
+            </div>
+            <p className="text-center text-blue-200/80 mb-6">
+              Waiting for the Host to start the session...
+            </p>
+            <div className="flex items-center justify-center mb-6 overflow-hidden rounded-lg">
+              <div className="flex-1 bg-syncme-light-purple/20 p-5 rounded-lg font-mono text-xl text-center text-white">
+                {roomCode}
+              </div>
+            </div>
+            <div className="flex items-center justify-center p-4 border border-dashed border-syncme-light-purple/30 rounded-lg mb-6 bg-white/5 backdrop-blur-sm">
+              <Users size={22} className="text-syncme-light-purple mr-2"/>
+              <span className="text-blue-200/80">Waiting for host...</span>
+            </div>
+          </div>
         ) : (
+          // Room Join/Create UI
           <div className="w-full max-w-md bg-syncme-dark/70 rounded-xl backdrop-blur-lg border border-syncme-light-purple/10 p-6 animate-fade-in card-glow">
             <div className="flex items-center justify-center mb-4">
               <span className="text-3xl mr-2">👥</span>
